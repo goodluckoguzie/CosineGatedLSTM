@@ -1,0 +1,5 @@
+Collecting portalocker
+  Downloading portalocker-2.8.2-py3-none-any.whl.metadata (8.5 kB)
+Downloading portalocker-2.8.2-py3-none-any.whl (17 kB)
+Installing collected packages: portalocker
+Successfully installed portalocker-2.8.2
