@@ -174,7 +174,7 @@ def main():
 
 
     # Set hyperparameters and load data
-    input_size = 128  # Input size for FashionMNIST (28x28 images)
+    input_size = 28  # Input size for FashionMNIST (28x28 images)
     hidden_size = 128  # Size of the hidden layer in the model
     output_size = 10  # Number of classes in FashionMNIST
     num_epochs = 213  # Number of epochs for training

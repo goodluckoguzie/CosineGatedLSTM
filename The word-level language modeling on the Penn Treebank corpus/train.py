@@ -63,11 +63,11 @@ def load_data(BATCH_SIZE=20):
 def train_and_evaluate(model_type, lr, seed, vocab, train_loader, valid_loader, test_loader):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    EMBEDDING_DIM = 200
+    EMBEDDING_DIM = 128
     HIDDEN_DIM = 200
     NUM_LAYERS = 1
-    DROPOUT = 0.5
-    N_EPOCHS = 55
+    DROPOUT = 0.2
+    N_EPOCHS = 35
 
     model = LanguageModel(len(vocab), EMBEDDING_DIM, HIDDEN_DIM, NUM_LAYERS, DROPOUT, model_type).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)

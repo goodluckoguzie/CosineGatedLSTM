@@ -204,12 +204,12 @@ def main():
     hidden_size = 128
     batch_size = 20
     num_steps = 10
-    T_values = [100, 1000]
+    T_values = [100,1000]
     train_set_size = 100_000
     val_set_size = 10_000
     test_set_size = 10_000
     seeds = [42, 56, 30,59,6]
-    learning_rates = {'Transformer': 1e-3,'GRUCell': 1e-3, 'LSTMCell': 1e-3, 'CGLSTMCellv0': 1e-3, 'CGLSTMCellv1': 1e-3, 'RAUCellv1': 1e-3}
+    learning_rates = {'Transformer': 1e-3,'GRUCell': 1e-3, 'LSTMCell': 1e-3, 'CGLSTMCellv0': 1e-3, 'CGLSTMCellv1': 1e-3, 'RAUCell': 1e-3}
     
     all_model_results = {}
     for model_type in learning_rates:

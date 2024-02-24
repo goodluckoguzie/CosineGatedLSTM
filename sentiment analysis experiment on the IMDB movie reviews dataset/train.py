@@ -259,9 +259,9 @@ def main():
     # Model parameters
     output_size = 1
     embedding_dim =  64
-    hidden_dim = 128  # 00
+    hidden_dim = 128
     n_layers = 1
-    dropout = 0.5
+    dropout = 0.2
 
     # Define model types and their respective learning rates
     model_types = ['Transformer','LSTMCell', 'GRUCell', 'RAUCell', 'CGLSTMCellv0', 'CGLSTMCellv1']

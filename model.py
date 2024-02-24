@@ -448,7 +448,7 @@ class TransformerModel(nn.Module):
         super(TransformerModel, self).__init__()
         self.pos_encoder = PositionalEncoding(hidden_size)
         self.input_linear = nn.Linear(input, hidden_size)
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=8, dropout=dropout)
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=8, dropout=dropout ,batch_first=True)
         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
         self.init_weights()
 
@@ -462,17 +462,24 @@ class TransformerModel(nn.Module):
         mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
         return mask
 
+    # def forward(self, src):
+    #     device = src.device
+    #     src = self.input_linear(src)
+
+    #     src = src.permute(1, 0, 2)
+    #     src = self.pos_encoder(src)
+    #     mask = self._generate_square_subsequent_mask(src.size(0)).to(device)
+    #     output = self.transformer_encoder(src, mask)
+    #     output = output.permute(1, 0, 2)
+    #     return output
     def forward(self, src):
         device = src.device
-        src = self.input_linear(src)
-
-        src = src.permute(1, 0, 2)
+        src = self.input_linear(src)  # [batch_size, seq_length, feature_size] stays consistent with batch_first=True
+        
         src = self.pos_encoder(src)
-        mask = self._generate_square_subsequent_mask(src.size(0)).to(device)
-        output = self.transformer_encoder(src, mask)
-        output = output.permute(1, 0, 2)
+        mask = self._generate_square_subsequent_mask(src.size(1)).to(device)  # Generate mask based on seq_length, now src.size(1) due to batch_first=True
+        output = self.transformer_encoder(src, mask)  # No need to permute src before passing to transformer_encoder
         return output
-
 ####################################################     ADDING PROBLEM  #######################################################################
 
 
@@ -670,12 +677,12 @@ class SA_RecurrentModel(nn.Module):
                 else:  # RAUCell, GRUCell
                     h = self.recurrent_layer(embeds[:, t], h)
                 rnn_outs.append(h.unsqueeze(1))
-            rnn_out = torch.cat(rnn_outs, dim=1)
+            output = torch.cat(rnn_outs, dim=1)
         elif self.model_type == 'Transformer':
             output = self.recurrent_layer(embeds)
-            last_output = output[:, -1]
         else:
             raise ValueError("Unexpected model type encountered.")
+        last_output = output[:, -1]
 
         out = self.sigmoid(self.fc(last_output))
         return out
