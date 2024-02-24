@@ -530,6 +530,7 @@ class FM_RecurrentModel(nn.Module):
         self.hidden_size = hidden_size
         self.model_type = model_type
 
+        # Initialize your recurrent layers here based on model_type
         if model_type == 'GRUCell':
             self.recurrent_layer = nn.GRUCell(input_size, hidden_size)
         elif model_type == 'LSTMCell':
@@ -548,14 +549,14 @@ class FM_RecurrentModel(nn.Module):
         self.fc = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
-        if self.model_type in ['GRUCell', 'RAUCell', 'CGLSTMCellv0', 'CGLSTMCellv1']:
+        # Adjust handling for LSTM and CGLSTM variants
+        if self.model_type in ['GRUCell', 'RAUCell']:
             h = torch.zeros(x.size(0), self.hidden_size).to(x.device)
             for t in range(x.size(1)):
                 h = self.recurrent_layer(x[:, t, :], h)
             last_output = h
         elif self.model_type in ['LSTMCell', 'CGLSTMCellv0', 'CGLSTMCellv1']:
-            h = torch.zeros(x.size(0), self.hidden_size).to(x.device)
-            c = torch.zeros_like(h)
+            h, c = (torch.zeros(x.size(0), self.hidden_size).to(x.device) for _ in range(2))
             for t in range(x.size(1)):
                 h, c = self.recurrent_layer(x[:, t, :], (h, c))
             last_output = h
