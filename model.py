@@ -422,8 +422,58 @@ class GRUCell(nn.Module):
 
 
 
-####################################################     ADDING PROBLEM  #######################################################################
+######################################################################Transformer #############################################
 
+
+from torch.nn import TransformerEncoder, TransformerEncoderLayer
+import math
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        x = x + self.pe[:x.size(0), :]
+        return x
+
+class TransformerModel(nn.Module):
+    def __init__(self, input, hidden_size, num_layers, dropout=0.0):
+        super(TransformerModel, self).__init__()
+        self.pos_encoder = PositionalEncoding(hidden_size)
+        self.input_linear = nn.Linear(input, hidden_size)
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=8, dropout=dropout)
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
+        self.init_weights()
+
+    def init_weights(self):
+        initrange = 0.1
+        self.input_linear.bias.data.zero_()
+        self.input_linear.weight.data.uniform_(-initrange, initrange)
+
+    def _generate_square_subsequent_mask(self, sz):
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask
+
+    def forward(self, src):
+        device = src.device
+        src = self.input_linear(src)
+
+        src = src.permute(1, 0, 2)
+        src = self.pos_encoder(src)
+        mask = self._generate_square_subsequent_mask(src.size(0)).to(device)
+        output = self.transformer_encoder(src, mask)
+        output = output.permute(1, 0, 2)
+        return output
+
+####################################################     ADDING PROBLEM  #######################################################################
 
 
 class AP_RecurrentModel(nn.Module):
@@ -441,8 +491,10 @@ class AP_RecurrentModel(nn.Module):
             self.recurrent_layer = CGLSTMCellv0(input_size, hidden_size)
         elif model_type == 'CGLSTMCellv1':
             self.recurrent_layer = CGLSTMCellv1(input_size, hidden_size)
+        elif model_type == 'Transformer':
+            self.recurrent_layer = TransformerModel(input_size, hidden_size, num_layers=1, dropout=0.1)
         else:
-            raise ValueError("Invalid model type. Choose 'GRUCell', 'LSTMCell', 'RAUCell', 'CGLSTMCellv0', or 'CGLSTMCellv1'.")
+            raise ValueError("Invalid model type. Choose 'GRUCell', 'LSTMCell', 'RAUCell', 'CGLSTMCellv0', 'CGLSTMCellv1', or 'Transformer'.")
 
         self.fc = nn.Linear(hidden_size, output_size)
 
@@ -460,6 +512,9 @@ class AP_RecurrentModel(nn.Module):
             for t in range(x.size(1)):
                 h, c = self.recurrent_layer(x[:, t, :], (h, c))
             last_output = h
+        elif self.model_type == 'Transformer':
+            output = self.recurrent_layer(x)
+            last_output = output[:, -1, :]  # Take the output of the last token for classification/regression tasks
         else:
             raise ValueError("Model type not supported in forward method.")
 
@@ -467,8 +522,8 @@ class AP_RecurrentModel(nn.Module):
         return out
 
 
-
 ####################################################     FASHION-MNIST  #######################################################################
+
 class FM_RecurrentModel(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, model_type='GRU'):
         super(FM_RecurrentModel, self).__init__()
@@ -476,22 +531,24 @@ class FM_RecurrentModel(nn.Module):
         self.model_type = model_type
 
         if model_type == 'GRUCell':
-            self.recurrent_layer = GRUCell(input_size, hidden_size)
+            self.recurrent_layer = nn.GRUCell(input_size, hidden_size)
         elif model_type == 'LSTMCell':
-            self.recurrent_layer = LSTMCell(input_size, hidden_size)
+            self.recurrent_layer = nn.LSTMCell(input_size, hidden_size)
         elif model_type == 'RAUCell':
             self.recurrent_layer = RAUCell(input_size, hidden_size)
         elif model_type == 'CGLSTMCellv0':
             self.recurrent_layer = CGLSTMCellv0(input_size, hidden_size)
         elif model_type == 'CGLSTMCellv1':
             self.recurrent_layer = CGLSTMCellv1(input_size, hidden_size)
+        elif model_type == 'Transformer':
+            self.transformer = TransformerModel(input_size, hidden_size, num_layers=1, dropout=0)
         else:
-            raise ValueError("Invalid model type. Choose 'GRUCell', 'LSTMCell', 'RAUCell', 'CGLSTMCellv0', or 'CGLSTMCellv1'.")
+            raise ValueError("Invalid model type. Choose 'GRUCell', 'LSTMCell', 'RAUCell', 'CGLSTMCellv0', 'CGLSTMCellv1', or 'Transformer'.")
 
         self.fc = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
-        if self.model_type in ['GRUCell', 'RAUCell']:
+        if self.model_type in ['GRUCell', 'RAUCell', 'CGLSTMCellv0', 'CGLSTMCellv1']:
             h = torch.zeros(x.size(0), self.hidden_size).to(x.device)
             for t in range(x.size(1)):
                 h = self.recurrent_layer(x[:, t, :], h)
@@ -502,8 +559,10 @@ class FM_RecurrentModel(nn.Module):
             for t in range(x.size(1)):
                 h, c = self.recurrent_layer(x[:, t, :], (h, c))
             last_output = h
+        elif self.model_type == 'Transformer':
+            output = self.transformer(x)
+            last_output = output[:, -1, :]  # Take the output of the last token for classification/regression tasks
         else:
-            # This line should not be necessary if all model types are correctly handled
             raise ValueError("Unexpected model type encountered.")
 
         out = self.fc(last_output)
@@ -512,6 +571,7 @@ class FM_RecurrentModel(nn.Module):
 
 
 #############################################################ROW-WISE###################################################
+
 
 class RowWise_RecurrentModel(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, model_type='GRU'):
@@ -529,35 +589,39 @@ class RowWise_RecurrentModel(nn.Module):
             self.recurrent_layer = CGLSTMCellv0(input_size, hidden_size)
         elif model_type == 'CGLSTMCellv1':
             self.recurrent_layer = CGLSTMCellv1(input_size, hidden_size)
+        elif model_type == 'Transformer':
+            # Assuming num_layers is fixed for simplicity, adjust as needed
+            self.recurrent_layer = TransformerModel(input_size, hidden_size, num_layers=1, dropout=0)
         else:
-            raise ValueError("Invalid model type. Choose 'GRUCell', 'LSTMCell', 'RAUCell', 'CGLSTMCellv0', or 'CGLSTMCellv1'.")
+            raise ValueError("Invalid model type. Choose 'GRUCell', 'LSTMCell', 'RAUCell', 'CGLSTMCellv0', 'CGLSTMCellv1', or 'Transformer'.")
 
         self.fc = nn.Linear(hidden_size, output_size)
-
     def forward(self, x):
-        if self.model_type in ['GRUCell', 'RAUCell']:
-            h = torch.zeros(x.size(0), self.hidden_size).to(x.device)
-            for t in range(x.size(1)):
-                h = self.recurrent_layer(x[:, t, :], h)
-            last_output = h
-        elif self.model_type in ['LSTMCell', 'CGLSTMCellv0', 'CGLSTMCellv1']:
-            h = torch.zeros(x.size(0), self.hidden_size).to(x.device)
-            c = torch.zeros_like(h)
-            for t in range(x.size(1)):
-                h, c = self.recurrent_layer(x[:, t, :], (h, c))
-            last_output = h
+        if self.model_type in ['GRUCell', 'RAUCell', 'LSTMCell', 'CGLSTMCellv0', 'CGLSTMCellv1']:
+            # RNN-based models are handled here as before
+            if self.model_type in ['LSTMCell', 'CGLSTMCellv0', 'CGLSTMCellv1']:
+                h = torch.zeros(x.size(0), self.hidden_size).to(x.device)
+                c = torch.zeros_like(h)
+                for t in range(x.size(1)):
+                    h, c = self.recurrent_layer(x[:, t, :], (h, c))
+                last_output = h
+            else: # GRUCell, RAUCell
+                h = torch.zeros(x.size(0), self.hidden_size).to(x.device)
+                for t in range(x.size(1)):
+                    h = self.recurrent_layer(x[:, t, :], h)
+                last_output = h
+        elif self.model_type == 'Transformer':
+            output = self.recurrent_layer(x)
+            # Assuming we're interested in the last output for tasks like classification
+            last_output = output[:, -1, :]  
         else:
-            # This line should not be necessary if all model types are correctly handled
             raise ValueError("Unexpected model type encountered.")
 
         out = self.fc(last_output)
         return out
 
 
-
-
 ################################################ Sentiment Analysis #############################################
-
 
 
 class SA_RecurrentModel(nn.Module):
@@ -569,11 +633,6 @@ class SA_RecurrentModel(nn.Module):
         # Embedding layer
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
 
-        # Initialize the appropriate recurrent layer
-        # if model_type == 'GRU':
-        #     self.recurrent_layer = nn.GRU(embedding_dim, hidden_size, batch_first=True, dropout=dropout)
-        # elif model_type == 'LSTM':
-        #     self.recurrent_layer = nn.LSTM(embedding_dim, hidden_size, batch_first=True, dropout=dropout)
         if model_type == 'RAUCell':
             self.recurrent_layer = RAUCell(embedding_dim, hidden_size)
         elif model_type == 'LSTMCell':
@@ -584,45 +643,44 @@ class SA_RecurrentModel(nn.Module):
             self.recurrent_layer = CGLSTMCellv1(embedding_dim, hidden_size)
         elif model_type == 'GRUCell':
             self.recurrent_layer = GRUCell(embedding_dim, hidden_size)
-
+        elif model_type == 'Transformer':
+            # Assuming num_layers is fixed for simplicity, adjust as needed
+            self.recurrent_layer = TransformerModel(embedding_dim, hidden_size, num_layers=1, dropout=dropout)
         else:
-            raise ValueError("Invalid RNN type. Choose 'GRU', 'LSTM', 'RAU', 'CGLSTMCellv0', etc.")
+            raise ValueError("Invalid model type. Choose among 'GRUCell', 'LSTMCell', 'RAUCell', 'CGLSTMCellv0', 'CGLSTMCellv1', or 'Transformer'.")
 
         # Fully connected output layer
         self.fc = nn.Linear(hidden_size, output_size)
 
         # Sigmoid activation function for binary classification
         self.sigmoid = nn.Sigmoid()
-
     def forward(self, x):
         embeds = self.embedding(x)
 
         if self.model_type in ['RAUCell', 'GRUCell', 'LSTMCell', 'CGLSTMCellv0', 'CGLSTMCellv1']:
+            # Initialize hidden state (and cell state for LSTM variants)
             h = torch.zeros(x.size(0), self.hidden_size).to(x.device)
-            # For LSTMCell and variants, also initialize cell state
             if self.model_type in ['LSTMCell', 'CGLSTMCellv0', 'CGLSTMCellv1']:
                 c = torch.zeros_like(h)
             rnn_outs = []
             for t in range(x.size(1)):
                 if self.model_type in ['LSTMCell', 'CGLSTMCellv0', 'CGLSTMCellv1']:
                     h, c = self.recurrent_layer(embeds[:, t], (h, c))
-                else:  # Handles RAUCell, GRUCell
+                else:  # RAUCell, GRUCell
                     h = self.recurrent_layer(embeds[:, t], h)
                 rnn_outs.append(h.unsqueeze(1))
             rnn_out = torch.cat(rnn_outs, dim=1)
+        elif self.model_type == 'Transformer':
+            output = self.recurrent_layer(embeds)
+            last_output = output[:, -1]
         else:
-            raise ValueError("Invalid RNN type.")
+            raise ValueError("Unexpected model type encountered.")
 
-        # Use the output from the last sequence step
-        last_output = rnn_out[:, -1]
         out = self.sigmoid(self.fc(last_output))
-
         return out
 
 
 #######################################  LanguageModel #########################
-
-
 
 
 class LanguageModel(nn.Module):
@@ -631,11 +689,13 @@ class LanguageModel(nn.Module):
         self.vocab_size = vocab_size
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.dropout = nn.Dropout(dropout_rate)
+        self.model_type = model_type
+        self.hidden_dim =hidden_dim
 
-        # Correctly handle model_type checks with elif and a final else for error
+        # Initialize the appropriate model based on model_type
         if model_type == 'RAUCell':
             self.rnn = RAUCell(embedding_dim, hidden_dim)
-        elif model_type == 'LSTMCell':  # Use elif for subsequent checks
+        elif model_type == 'LSTMCell':
             self.rnn = LSTMCell(embedding_dim, hidden_dim)
         elif model_type == 'GRUCell':
             self.rnn = GRUCell(embedding_dim, hidden_dim)
@@ -643,42 +703,45 @@ class LanguageModel(nn.Module):
             self.rnn = CGLSTMCellv0(embedding_dim, hidden_dim)
         elif model_type == 'CGLSTMCellv1':
             self.rnn = CGLSTMCellv1(embedding_dim, hidden_dim)
+        elif model_type == 'Transformer':
+            # For the Transformer, hidden_dim is used as d_model
+            self.transformer = TransformerModel(embedding_dim, hidden_dim, num_layers=num_layers, dropout=dropout_rate)
         else:
-            raise ValueError("Invalid model type. Choose 'GRUCell', 'LSTMCell', 'RAUCell', 'CGLSTMCellv0', or 'CGLSTMCellv1'")
+            raise ValueError("Invalid model type. Choose 'GRUCell', 'LSTMCell', 'RAUCell', 'CGLSTMCellv0', 'CGLSTMCellv1', or 'Transformer'.")
 
         self.fc = nn.Linear(hidden_dim, vocab_size)
-        self.model_type = model_type
 
     def forward(self, text):
         embedded = self.dropout(self.embedding(text))
-        
-        # Handle both cases: when seq_len is present and when it's not
-        if embedded.dim() == 2:  # If embedded is [batch_size, embedding_dim]
-            embedded = embedded.unsqueeze(1)  # Add a sequence length of 1
-            batch_size, seq_len, embedding_dim = embedded.size()
-        else:  # Assuming embedded is [batch_size, seq_len, embedding_dim]
-            batch_size, seq_len, embedding_dim = embedded.size()
 
-        # Initialize hidden states
-        if isinstance(self.rnn, (RAUCell, GRUCell)):
-            hidden = torch.zeros(batch_size, self.rnn.hidden_size, device=text.device)
-        elif isinstance(self.rnn, (LSTMCell, CGLSTMCellv0, CGLSTMCellv1)):
-            hx = torch.zeros(batch_size, self.rnn.hidden_size, device=text.device)
-            cx = torch.zeros(batch_size, self.rnn.hidden_size, device=text.device)
+        if self.model_type == 'Transformer':
+            if embedded.dim() == 2:
+                embedded = embedded.unsqueeze(1)  # Add a sequence length of 1
+            output = self.transformer(embedded)
+            batch_size, seq_len, _ = output.size()  
         else:
-            raise ValueError("Unsupported RNN cell type.")
+            if embedded.dim() == 2:
+                embedded = embedded.unsqueeze(1)  # Add a sequence length of 1
+            batch_size, seq_len, _ = embedded.size()
 
-        # Process input for each timestep
-        output = []
-        for timestep in range(seq_len):
             if isinstance(self.rnn, (RAUCell, GRUCell)):
-                hidden = self.rnn(embedded[:, timestep, :], hidden)
-                output.append(hidden.unsqueeze(1))
+                hidden = torch.zeros(batch_size, self.rnn.hidden_size, device=text.device)
             elif isinstance(self.rnn, (LSTMCell, CGLSTMCellv0, CGLSTMCellv1)):
-                hx, cx = self.rnn(embedded[:, timestep, :], (hx, cx))
-                output.append(hx.unsqueeze(1))
-        
-        output = torch.cat(output, dim=1)
-        output = self.dropout(output)
-        decoded = self.fc(output.view(-1, self.rnn.hidden_size))
-        return decoded.view(batch_size, seq_len, -1)
+                hx = torch.zeros(batch_size, self.rnn.hidden_size, device=text.device)
+                cx = torch.zeros(batch_size, self.rnn.hidden_size, device=text.device)
+
+            output = []
+            for timestep in range(seq_len):
+                if isinstance(self.rnn, (RAUCell, GRUCell)):
+                    hidden = self.rnn(embedded[:, timestep, :], hidden)
+                    output.append(hidden.unsqueeze(1))
+                elif isinstance(self.rnn, (LSTMCell, CGLSTMCellv0, CGLSTMCellv1)):
+                    hx, cx = self.rnn(embedded[:, timestep, :], (hx, cx))
+                    output.append(hx.unsqueeze(1))
+            if self.model_type != 'Transformer':
+                output = torch.cat(output, dim=1)
+                output = self.dropout(output)
+
+        # Apply the fully connected layer to the output
+        decoded = self.fc(output.reshape(-1, self.hidden_dim if self.model_type == 'Transformer' else self.rnn.hidden_size))
+        return decoded.view(-1 if self.model_type == 'Transformer' else batch_size, seq_len, self.vocab_size)

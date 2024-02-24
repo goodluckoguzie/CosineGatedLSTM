@@ -31,7 +31,7 @@ def main():
         t_test_results = {}
         for model_type in learning_rates:
             for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
-                _, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['GRUCell'][metric], nan_policy='omit')
+                _, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGLSTMCellv1'][metric], nan_policy='omit')
                 t_test_results[(model_type, metric)] = p_value
 
         # Compile the final table data with mean metrics and p-values from t-tests
@@ -87,7 +87,7 @@ def main():
     batch_size = 128  # Number of samples per batch to load
 
 
-    RAU_learning_rate, CGLSTMCellv0_learning_rate, CGLSTMCellv1_learning_rate, GRU_learning_rate, LSTM_learning_rate = 1e-3, 1e-3, 1e-3, 1e-3, 1e-3
+    Transformer_rate,RAU_learning_rate, CGLSTMCellv0_learning_rate, CGLSTMCellv1_learning_rate, GRU_learning_rate, LSTM_learning_rate = 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3
 
 
     train_transform = transforms.Compose([
@@ -286,7 +286,7 @@ def main():
     if not os.path.exists('results'):
         os.makedirs('results')
 
-    learning_rates = {'LSTMCell': LSTM_learning_rate, 'CGLSTMCellv0': CGLSTMCellv0_learning_rate, 'CGLSTMCellv1': CGLSTMCellv1_learning_rate, 'RAUCell': RAU_learning_rate, 'GRUCell': GRU_learning_rate}
+    learning_rates = {'Transformer': Transformer_rate,'LSTMCell': LSTM_learning_rate, 'CGLSTMCellv0': CGLSTMCellv0_learning_rate, 'CGLSTMCellv1': CGLSTMCellv1_learning_rate, 'RAUCell': RAU_learning_rate, 'GRUCell': GRU_learning_rate}
     seeds = [42, 6, 456, 789, 112]
 
     all_model_results = {}

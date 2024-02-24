@@ -151,10 +151,10 @@ def prepare_and_display_final_results(all_model_results):
         'Model Type': [], 'Mean Train Perplexity': [], 'Std Train Perplexity': [],
         'Mean Valid Perplexity': [], 'Std Valid Perplexity': [], 'Mean Test Perplexity': [],
         'Std Test Perplexity': [], 'Mean Train Time': [], 'Mean Test Time': [], 'Mean Num Parameters': [],
-        'P-Value Train PPL vs. GRUCell': [], 'P-Value Valid PPL vs. GRUCell': [], 'P-Value Test PPL vs. GRUCell': []
+        'P-Value Train PPL vs. CGLSTMCellv1': [], 'P-Value Valid PPL vs. CGLSTMCellv1': [], 'P-Value Test PPL vs. CGLSTMCellv1': []
     }
     
-    benchmark_model = 'GRUCell'
+    benchmark_model = 'CGLSTMCellv1'
     benchmark_results = {'train_ppl': [], 'valid_ppl': [], 'test_ppl': []}
     
     if benchmark_model in all_model_results:
@@ -210,7 +210,7 @@ def prepare_and_display_final_results(all_model_results):
 
 def main():
     BATCH_SIZE = 20
-    learning_rates = {'LSTMCell': 1e-3, 'GRUCell': 1e-3, 'CGLSTMCellv1': 1e-3, 'CGLSTMCellv0': 1e-3, 'RAUCell': 1e-3}
+    learning_rates = {'Transformer': 1e-3,'LSTMCell': 1e-3, 'GRUCell': 1e-3, 'CGLSTMCellv1': 1e-3, 'CGLSTMCellv0': 1e-3, 'RAUCell': 1e-3}
     seeds = [42,6,8,6,4]
 
     vocab, train_loader, valid_loader, test_loader = load_data(BATCH_SIZE)

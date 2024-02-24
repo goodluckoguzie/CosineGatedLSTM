@@ -180,7 +180,7 @@ def main():
     num_epochs = 213  # Number of epochs for training
     batch_size = 128  # Batch size for training and evaluation
     learning_rates = {
-        'LSTMCell': 1e-3, 'RAUCell': 1e-3,
+        'Transformer': 1e-3,'LSTMCell': 1e-3, 'RAUCell': 1e-3,
         'CGLSTMCellv0': 1e-3, 'CGLSTMCellv1': 1e-3, 'GRUCell': 1e-3
     }
     seeds = [10, 20,35,64,2]  # Seeds for reproducibility
@@ -251,7 +251,7 @@ def prepare_and_display_final_results(all_model_results, learning_rates, seeds):
     t_test_results = {}
     for model_type in learning_rates:
         for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
-            _, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['GRUCell'][metric], nan_policy='omit')
+            _, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGLSTMCellv1'][metric], nan_policy='omit')
             t_test_results[(model_type, metric)] = p_value
 
     # Creating the final table
