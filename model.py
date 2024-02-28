@@ -424,9 +424,40 @@ class GRUCell(nn.Module):
 
 ######################################################################Transformer #############################################
 
-
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 import math
+
+
+class TransformerModel(nn.Module):
+    def __init__(self, input, hidden_size, num_layers, dropout=0.0):
+        super(TransformerModel, self).__init__()
+        self.pos_encoder = PositionalEncoding(hidden_size)
+
+        self.input_linear = nn.Linear(input , hidden_size)
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=4, dropout=dropout)
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
+        self.init_weights()
+
+    def init_weights(self):
+        initrange = 0.1
+        self.input_linear.bias.data.zero_()
+        self.input_linear.weight.data.uniform_(-initrange, initrange)
+
+    def _generate_square_subsequent_mask(self, sz):
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask
+
+    def forward(self, src):
+        device = src.device
+        src = self.input_linear(src)
+        src = src.permute(1, 0, 2)
+        src = self.pos_encoder(src)
+        mask = self._generate_square_subsequent_mask(src.size(0)).to(device)
+        output = self.transformer_encoder(src, mask)
+        output = output.permute(1, 0, 2)
+
+        return output
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=5000):
@@ -443,43 +474,6 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:x.size(0), :]
         return x
 
-class TransformerModel(nn.Module):
-    def __init__(self, input, hidden_size, num_layers, dropout=0.0):
-        super(TransformerModel, self).__init__()
-        self.pos_encoder = PositionalEncoding(hidden_size)
-        self.input_linear = nn.Linear(input, hidden_size)
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=8, dropout=dropout ,batch_first=True)
-        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
-        self.init_weights()
-
-    def init_weights(self):
-        initrange = 0.1
-        self.input_linear.bias.data.zero_()
-        self.input_linear.weight.data.uniform_(-initrange, initrange)
-
-    def _generate_square_subsequent_mask(self, sz):
-        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-        return mask
-
-    # def forward(self, src):
-    #     device = src.device
-    #     src = self.input_linear(src)
-
-    #     src = src.permute(1, 0, 2)
-    #     src = self.pos_encoder(src)
-    #     mask = self._generate_square_subsequent_mask(src.size(0)).to(device)
-    #     output = self.transformer_encoder(src, mask)
-    #     output = output.permute(1, 0, 2)
-    #     return output
-    def forward(self, src):
-        device = src.device
-        src = self.input_linear(src)  # [batch_size, seq_length, feature_size] stays consistent with batch_first=True
-        
-        src = self.pos_encoder(src)
-        mask = self._generate_square_subsequent_mask(src.size(1)).to(device)  # Generate mask based on seq_length, now src.size(1) due to batch_first=True
-        output = self.transformer_encoder(src, mask)  # No need to permute src before passing to transformer_encoder
-        return output
 ####################################################     ADDING PROBLEM  #######################################################################
 
 
