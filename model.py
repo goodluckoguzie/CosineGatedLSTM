@@ -111,7 +111,7 @@ class LSTMCell(nn.Module):
         layer_norm (bool, optional): Whether to apply LayerNorm after the input projection. Defaults to True.
     """
     def __init__(
-        self, input_size: int, hidden_size: int, bias: bool = True, batch_first: bool = False, layer_norm: bool = True
+        self, input_size: int, hidden_size: int, bias: bool = True, batch_first: bool = False, layer_norm: bool = False
     ) -> None:
         super().__init__()
         self.input_size = input_size
@@ -181,7 +181,7 @@ class CGLSTMCellv0(nn.Module):
       helping to stabilize the learning process. Default is `True`.
     """
 
-    def __init__(self, input_size: int, hidden_size: int, bias: bool = True, batch_first: bool = False, layer_norm: bool = False) -> None:
+    def __init__(self, input_size: int, hidden_size: int, bias: bool = True, batch_first: bool = True, layer_norm: bool = True) -> None:
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -276,7 +276,7 @@ class CGLSTMCellv1(nn.Module):
     - layer_norm: If `True`, applies layer normalization to each gate. Default: `True`
     """
 
-    def __init__(self, input_size: int, hidden_size: int, bias: bool = True, batch_first: bool = False, layer_norm: bool = False) -> None:
+    def __init__(self, input_size: int, hidden_size: int, bias: bool = True, batch_first: bool = True, layer_norm: bool = True) -> None:
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
