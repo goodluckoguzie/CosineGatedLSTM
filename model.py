@@ -215,7 +215,7 @@ class TransformerModel(nn.Module):
         self.pos_encoder = PositionalEncoding(hidden_size)
 
         self.input_linear = nn.Linear(input, hidden_size)
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=1, dropout=dropout)
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=8, dropout=dropout)
         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
         self.init_weights()
 
@@ -240,7 +240,7 @@ class TransformerModel(nn.Module):
         return output
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, max_len=10_000):
+    def __init__(self, d_model, max_len=11_000):
         super(PositionalEncoding, self).__init__()
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
