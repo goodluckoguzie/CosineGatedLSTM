@@ -177,7 +177,7 @@ def prepare_and_display_final_results(all_model_results, learning_rates, seeds):
     final_df = pd.DataFrame(final_results)
 
     # Perform t-tests between CGLSTMCellv1 and other models for MAE.
-    benchmark_model = 'CGLSTMCellv1'
+    benchmark_model = 'CGLSTMv1'
     for metric in ['val_mae', 'test_mae']:
         if benchmark_model not in aggregated_metrics:  # Skip if benchmark model not in results
             continue
@@ -196,6 +196,7 @@ def prepare_and_display_final_results(all_model_results, learning_rates, seeds):
     final_df.to_csv(final_results_path, index=False)
     
     print("Final aggregated results saved to:", final_results_path)
+
 def main():
     """
     Main function to execute the training and evaluation process.
@@ -203,13 +204,13 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     hidden_size = 128
     batch_size = 20
-    num_steps = 10
-    T_values = [100,1000]
+    num_steps = 50
+    T_values = [1000]
     train_set_size = 100_000
     val_set_size = 10_000
     test_set_size = 10_000
     seeds = [42, 56, 30,59,6]
-    learning_rates = {'Transformer': 1e-3,'GRUCell': 1e-3, 'LSTMCell': 1e-3, 'CGLSTMCellv0': 1e-3, 'CGLSTMCellv1': 1e-3, 'RAUCell': 1e-3}
+    learning_rates = { 'RAUCell': 1e-3,'Transformer': 1e-3,'GRU': 1e-3, 'LSTM': 1e-3, 'CGLSTMv0': 1e-3, 'CGLSTMv1': 1e-3}
     
     all_model_results = {}
     for model_type in learning_rates:

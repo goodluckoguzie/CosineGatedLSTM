@@ -31,7 +31,7 @@ def main():
         t_test_results = {}
         for model_type in learning_rates:
             for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
-                _, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGLSTMCellv1'][metric], nan_policy='omit')
+                _, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGLSTMv1'][metric], nan_policy='omit')
                 t_test_results[(model_type, metric)] = p_value
 
         # Compile the final table data with mean metrics and p-values from t-tests
@@ -286,11 +286,9 @@ def main():
     if not os.path.exists('results'):
         os.makedirs('results')
 
-    learning_rates = {'Transformer': Transformer_rate,'LSTMCell': LSTM_learning_rate, 'CGLSTMCellv0': CGLSTMCellv0_learning_rate, 'CGLSTMCellv1': CGLSTMCellv1_learning_rate, 'RAUCell': RAU_learning_rate, 'GRUCell': GRU_learning_rate}
+    learning_rates = {'Transformer': Transformer_rate,'LSTM': LSTM_learning_rate, 'CGLSTMv0': CGLSTMCellv0_learning_rate, 'CGLSTMv1': CGLSTMCellv1_learning_rate, 'RAUCell': RAU_learning_rate, 'GRU': GRU_learning_rate}
     seeds = [42, 6, 456, 789, 112]
-
     all_model_results = {}
-
 
     for model_type, lr in learning_rates.items():
         model_results = {}
@@ -298,14 +296,14 @@ def main():
             result = train_and_evaluate(model_type, lr, seed)
             model_results[seed] = result
 
-            # Prepare results for CSV, excluding complex structures like confusion matrices
+            # Modify here to store lists as objects
             result_for_csv = {
                 'seed': seed,
-                'train_loss': result['epoch_train_losses'], 
-                'val_loss': result['epoch_val_losses'],  
-                'train_accuracy': result['train_accuracies'],  
-                'val_accuracy': result['val_accuracies'],  
-                'test_accuracy': [result['test_accuracy']],
+                'train_loss': result['epoch_train_losses'],  # Stored directly as list object
+                'val_loss': result['epoch_val_losses'],  # Stored directly as list object
+                'train_accuracy': result['train_accuracies'],  # Stored directly as list object
+                'val_accuracy': result['val_accuracies'],  # Stored directly as list object
+                'test_accuracy': [result['test_accuracy']],  # Single values wrapped in a list for consistency
                 'precision': [result['precision']],
                 'recall': [result['recall']],
                 'f1_score': [result['f1_score']],
@@ -313,10 +311,10 @@ def main():
                 'testing_time': [result['testing_time']]
             }
 
-            # Convert to DataFrame
-            df = pd.DataFrame.from_dict(result_for_csv)
-            
-            # File naming
+            # Convert to DataFrame, ensuring each metric is handled as its appropriate data type
+            df = pd.DataFrame([result_for_csv])  # Encapsulate in a list to ensure DataFrame creation
+
+            # File naming and saving
             filename = f'results/{model_type}_lr_{lr:.1e}_seed_{seed}.csv'
             df.to_csv(filename, index=False)
             # print(f"Saved results to {filename}")

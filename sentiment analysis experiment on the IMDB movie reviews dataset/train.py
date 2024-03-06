@@ -51,7 +51,8 @@ def main():
         """
         Trains and evaluates a sentiment analysis model specified by model_type with
         the given learning rate, training, validation, and test data loaders, across
-        different seeds for reproducibility. Measures and prints performance metrics.
+        different seeds for reproducibility. Measures and prints performance metrics,
+        including per-epoch training and validation losses.
         
         Parameters:
         - model_type: String specifying the type of RNN model to use.
@@ -63,7 +64,7 @@ def main():
         
         Returns:
         - model: The trained PyTorch model.
-        - all_results: A dictionary containing training, validation, and testing results.
+        - all_results: A dictionary containing detailed training, validation, and testing results.
         """
         all_results = {}
         for seed in seeds:
@@ -71,6 +72,10 @@ def main():
             # Set seed for reproducibility
             torch.manual_seed(seed)
             np.random.seed(seed)
+
+            # Initialize lists to track per-epoch losses
+            epoch_train_losses = []
+            epoch_val_losses = []
 
             # Start time for training
             start_time = time.time()
@@ -90,17 +95,16 @@ def main():
                     output = model(inputs)
 
                     loss = criterion(output.squeeze(), labels.float())
-
                     loss.backward()
                     # Gradient clipping
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-
                     optimizer.step()
                     train_loss += loss.item()
                     predicted = (output >= 0.5).float()
                     train_correct += predicted.eq(labels.view_as(predicted)).sum().item()
                     total_train += labels.size(0)
                 train_accuracy = (train_correct / total_train) * 100
+                epoch_train_losses.append(train_loss / len(train_loader))  # Save per-epoch training loss
 
                 # Validation loop
                 model.eval()
@@ -115,6 +119,7 @@ def main():
                         val_correct += predicted.eq(labels.view_as(predicted)).sum().item()
                         total_val += labels.size(0)
                 val_accuracy = (val_correct / total_val) * 100
+                epoch_val_losses.append(val_loss / len(val_loader))  # Save per-epoch validation loss
 
                 print(f'Epoch [{epoch + 1}/{epochs}], {model_type} - Train Loss: {train_loss / len(train_loader):.4f}, Validation Loss: {val_loss / len(val_loader):.4f}, Train Accuracy: {train_accuracy:.2f}%, Validation Accuracy: {val_accuracy:.2f}%')
 
@@ -148,12 +153,13 @@ def main():
             # End time for training
             end_time = time.time()
             training_duration = end_time - start_time
-            print(f"Training Time for {model_type}: {training_duration:.2f} seconds")
 
-            # Save the individual results
+            # Save the detailed results including per-epoch losses
             all_results[f'Seed_{seed}'] = {
                 "train_losses": train_loss / len(train_loader),
                 "val_losses": val_loss / len(val_loader),
+                "epoch_train_losses": epoch_train_losses,
+                "epoch_val_losses": epoch_val_losses,
                 "train_accuracies": train_accuracy,
                 "val_accuracies": val_accuracy,
                 "test_losses": test_loss / len(test_loader),
@@ -264,7 +270,7 @@ def main():
     dropout = 0.2
 
     # Define model types and their respective learning rates
-    model_types = ['Transformer','LSTMCell', 'GRUCell', 'RAUCell', 'CGLSTMCellv0', 'CGLSTMCellv1']
+    model_types = ['Transformer','LSTM', 'GRU', 'RAUCell', 'CGLSTMv0', 'CGLSTMv1']
     learning_rates = [1e-3,1e-3, 1e-3, 1e-3, 1e-3, 1e-3]  # Example learning rates
 
     # Set seeds for reproducibility
@@ -311,11 +317,11 @@ def main():
 
     # Perform independent two-sample t-tests between models for statistical significance on validation, training, and test accuracy
     t_test_results = {'val_accuracy': {}, 'train_accuracy': {}, 'test_accuracy': {}}
-    baseline_val_accuracies = [r['val_accuracies'] for r in all_model_results['CGLSTMCellv1'].values()]
-    baseline_train_accuracies = [r['train_accuracies'] for r in all_model_results['CGLSTMCellv1'].values()]
-    baseline_test_accuracies = [r['test_accuracies'] for r in all_model_results['CGLSTMCellv1'].values()]
+    baseline_val_accuracies = [r['val_accuracies'] for r in all_model_results['CGLSTMv1'].values()]
+    baseline_train_accuracies = [r['train_accuracies'] for r in all_model_results['CGLSTMv1'].values()]
+    baseline_test_accuracies = [r['test_accuracies'] for r in all_model_results['CGLSTMv1'].values()]
     for model_type in model_types:
-        if model_type == 'CGLSTMCellv1':  # Skip baseline comparison with itself
+        if model_type == 'CGLSTMv1':  # Skip baseline comparison with itself
             continue
         val_accuracies = [r['val_accuracies'] for r in all_model_results[model_type].values()]
         train_accuracies = [r['train_accuracies'] for r in all_model_results[model_type].values()]
@@ -343,9 +349,9 @@ def main():
             'Mean Test Accuracy (%)': metrics['mean_test_accuracy'],
             'Mean Training Time (s)': metrics['mean_training_time'],
             'Mean Testing Time (s)': metrics['mean_testing_time'],
-            'T-test p-value (vs. CGLSTMCellv1) (Validation Accuracy)': t_test_results['val_accuracy'].get(model_type, 'N/A'),
-            'T-test p-value (vs. CGLSTMCellv1) (Training Accuracy)': t_test_results['train_accuracy'].get(model_type, 'N/A'),
-            'T-test p-value (vs. CGLSTMCellv1) (Test Accuracy)': t_test_results['test_accuracy'].get(model_type, 'N/A')
+            'T-test p-value (vs. CGLSTMv1) (Validation Accuracy)': t_test_results['val_accuracy'].get(model_type, 'N/A'),
+            'T-test p-value (vs. CGLSTMv1) (Training Accuracy)': t_test_results['train_accuracy'].get(model_type, 'N/A'),
+            'T-test p-value (vs. CGLSTMv1) (Test Accuracy)': t_test_results['test_accuracy'].get(model_type, 'N/A')
         })
 
     # Convert to DataFrame and save to CSV

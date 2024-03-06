@@ -60,6 +60,7 @@ def load_data(BATCH_SIZE=20):
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
     return vocab, train_loader, valid_loader, test_loader
 
+
 def train_and_evaluate(model_type, lr, seed, vocab, train_loader, valid_loader, test_loader):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -73,10 +74,10 @@ def train_and_evaluate(model_type, lr, seed, vocab, train_loader, valid_loader, 
     optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
 
-    metrics = {'train_loss': [], 'valid_loss': [], 'test_loss': [], 'train_ppl': [], 'valid_ppl': [], 'test_ppl': [], 'train_time': [], 'test_time': []}
+    metrics = {'train_loss': [], 'valid_loss': [], 'train_ppl': [], 'valid_ppl': [], 'test_loss': [], 'test_ppl': [], 'train_time': [], 'test_time': []}
 
-    start_train_time = time.time()
     for epoch in range(N_EPOCHS):
+        start_train_time = time.time()
         model.train()
         total_train_loss = 0
         for text, targets in train_loader:
@@ -87,17 +88,26 @@ def train_and_evaluate(model_type, lr, seed, vocab, train_loader, valid_loader, 
             loss.backward()
             optimizer.step()
             total_train_loss += loss.item()
-    metrics['train_time'].append(time.time() - start_train_time)
+        metrics['train_time'].append(time.time() - start_train_time)
 
-    total_val_loss = 0
-    model.eval()
-    with torch.no_grad():
-        for text, targets in valid_loader:
-            text, targets = text.to(device), targets.to(device)
-            output = model(text)
-            loss = criterion(output.view(-1, len(vocab)), targets.view(-1))
-            total_val_loss += loss.item()
+        total_val_loss = 0
+        model.eval()
+        with torch.no_grad():
+            for text, targets in valid_loader:
+                text, targets = text.to(device), targets.to(device)
+                output = model(text)
+                loss = criterion(output.view(-1, len(vocab)), targets.view(-1))
+                total_val_loss += loss.item()
+                
+        avg_train_loss = total_train_loss / len(train_loader)
+        avg_val_loss = total_val_loss / len(valid_loader)
 
+        metrics['train_loss'].append(avg_train_loss)
+        metrics['valid_loss'].append(avg_val_loss)
+        metrics['train_ppl'].append(np.exp(avg_train_loss))
+        metrics['valid_ppl'].append(np.exp(avg_val_loss))
+
+    # After all epochs, calculate test metrics
     start_test_time = time.time()
     total_test_loss = 0
     with torch.no_grad():
@@ -108,15 +118,8 @@ def train_and_evaluate(model_type, lr, seed, vocab, train_loader, valid_loader, 
             total_test_loss += loss.item()
     metrics['test_time'].append(time.time() - start_test_time)
 
-    avg_train_loss = total_train_loss / len(train_loader)
-    avg_val_loss = total_val_loss / len(valid_loader)
     avg_test_loss = total_test_loss / len(test_loader)
-
-    metrics['train_loss'].append(avg_train_loss)
-    metrics['valid_loss'].append(avg_val_loss)
     metrics['test_loss'].append(avg_test_loss)
-    metrics['train_ppl'].append(np.exp(avg_train_loss))
-    metrics['valid_ppl'].append(np.exp(avg_val_loss))
     metrics['test_ppl'].append(np.exp(avg_test_loss))
 
     # Save the model
@@ -126,35 +129,55 @@ def train_and_evaluate(model_type, lr, seed, vocab, train_loader, valid_loader, 
     model_save_path = os.path.join(model_save_directory, f'{model_type}_seed_{seed}.pt')
     torch.save(model.state_dict(), model_save_path)
 
+
     # Ensure the models directory exists
     model_save_directory = 'results'
     if not os.path.exists(model_save_directory):
         os.makedirs(model_save_directory)
-    
-    num_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-    # Saving individual metrics to CSV
-    individual_results_path = f'results/{model_type}_seed_{seed}_metrics.csv'
-    pd.DataFrame(metrics).to_csv(individual_results_path, index=False)
+
+
+    # Saving epoch-wise metrics
+    epoch_metrics = {
+        'train_loss': metrics['train_loss'],
+        'valid_loss': metrics['valid_loss'],
+        'train_ppl': metrics['train_ppl'],
+        'valid_ppl': metrics['valid_ppl']
+    }
+    epoch_results_path = f'results/{model_type}_seed_{seed}_epoch_metrics.csv'
+    pd.DataFrame(epoch_metrics).to_csv(epoch_results_path, index=False)
+
+    # Prepare and save final metrics
+    final_metrics = {
+        'test_loss': [avg_test_loss],
+        'test_ppl': [np.exp(avg_test_loss)],
+        'mean_train_time': [np.mean(metrics['train_time'])],
+        'mean_test_time': [np.mean(metrics['test_time'])],
+        'num_parameters': [sum(p.numel() for p in model.parameters() if p.requires_grad)]
+    }
+    final_results_path = f'results/{model_type}_seed_{seed}_final_metrics.csv'
+    pd.DataFrame(final_metrics).to_csv(final_results_path, index=False)
 
     return {
         'train_perplexity': np.mean(metrics['train_ppl']),
         'valid_perplexity': np.mean(metrics['valid_ppl']),
-        'test_perplexity': np.mean(metrics['test_ppl']),
-        'num_parameters': num_parameters,
+        'test_perplexity': np.exp(avg_test_loss),
+        'num_parameters': sum(p.numel() for p in model.parameters() if p.requires_grad),
         'mean_train_time': np.mean(metrics['train_time']),
         'mean_test_time': np.mean(metrics['test_time']),
         'model_save_path': model_save_path
     }
+
+
 def prepare_and_display_final_results(all_model_results):
     final_summary = {
         'Model Type': [], 'Mean Train Perplexity': [], 'Std Train Perplexity': [],
         'Mean Valid Perplexity': [], 'Std Valid Perplexity': [], 'Mean Test Perplexity': [],
         'Std Test Perplexity': [], 'Mean Train Time': [], 'Mean Test Time': [], 'Mean Num Parameters': [],
-        'P-Value Train PPL vs. CGLSTMCellv1': [], 'P-Value Valid PPL vs. CGLSTMCellv1': [], 'P-Value Test PPL vs. CGLSTMCellv1': []
+        'P-Value Train PPL vs. CGLSTMv1': [], 'P-Value Valid PPL vs. CGLSTMv1': [], 'P-Value Test PPL vs. CGLSTMv1': []
     }
     
-    benchmark_model = 'CGLSTMCellv1'
+    benchmark_model = 'CGLSTMv1'
     benchmark_results = {'train_ppl': [], 'valid_ppl': [], 'test_ppl': []}
     
     if benchmark_model in all_model_results:
@@ -210,7 +233,8 @@ def prepare_and_display_final_results(all_model_results):
 
 def main():
     BATCH_SIZE = 20
-    learning_rates = {'Transformer': 1e-3,'LSTMCell': 1e-3, 'GRUCell': 1e-3, 'CGLSTMCellv1': 1e-3, 'CGLSTMCellv0': 1e-3, 'RAUCell': 1e-3}
+    # learning_rates = {'GRU': 1e-3,}
+    learning_rates = {'Transformer': 1e-3,'CGLSTMv0': 1e-3,'LSTM': 1e-3,'GRU': 1e-3,'GRU': 1e-3,'GRU': 1e-3, 'RAUCell': 1e-3,'CGLSTMv1': 1e-3}
     seeds = [42,6,8,6,4]
 
     vocab, train_loader, valid_loader, test_loader = load_data(BATCH_SIZE)
