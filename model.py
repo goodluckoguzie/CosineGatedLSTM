@@ -417,7 +417,7 @@ class RowWise_RecurrentModel(nn.Module):
 
 
 class SA_RecurrentModel(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, hidden_size, output_size, model_type='GRU', dropout=0.5):
+    def __init__(self, vocab_size, embedding_dim, hidden_size, output_size, model_type='GRU', dropout=0.0):
         super(SA_RecurrentModel, self).__init__()
         self.model_type = model_type
         self.hidden_size = hidden_size
@@ -428,13 +428,13 @@ class SA_RecurrentModel(nn.Module):
         if model_type == 'RAUCell':
             self.recurrent_layer = RAUCell(embedding_dim, hidden_size)
         elif model_type == 'LSTM':
-            self.recurrent_layer = nn.LSTM(embedding_dim, hidden_size)
+            self.recurrent_layer = nn.LSTM(embedding_dim, hidden_size,batch_first=True)
         elif model_type == 'CGLSTMv0':
             self.recurrent_layer = CGLSTMCellv0(embedding_dim, hidden_size)
         elif model_type == 'CGLSTMv1':
             self.recurrent_layer = CGLSTMCellv1(embedding_dim, hidden_size)
         elif model_type == 'GRU':
-            self.recurrent_layer = nn.GRU(embedding_dim, hidden_size)
+            self.recurrent_layer = nn.GRU(embedding_dim, hidden_size,batch_first=True)
         elif model_type == 'Transformer':
             # Assuming num_layers is fixed for simplicity, adjust as needed
             self.recurrent_layer = TransformerModel(embedding_dim, hidden_size, num_layers=1, dropout=dropout)
@@ -487,9 +487,9 @@ class LanguageModel(nn.Module):
         if model_type == 'RAUCell':
             self.rnn = RAUCell(embedding_dim, hidden_dim)
         elif model_type == 'LSTM':
-            self.rnn = nn.LSTM(embedding_dim, hidden_dim)
+            self.rnn = nn.LSTM(embedding_dim, hidden_dim,batch_first=True)
         elif model_type == 'GRU':
-            self.rnn = nn.GRU(embedding_dim, hidden_dim)
+            self.rnn = nn.GRU(embedding_dim, hidden_dim,batch_first=True)
         elif model_type == 'CGLSTMv0':
             self.rnn = CGLSTMCellv0(embedding_dim, hidden_dim)
         elif model_type == 'CGLSTMv1':
