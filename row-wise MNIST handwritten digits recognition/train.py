@@ -31,7 +31,7 @@ def main():
         t_test_results = {}
         for model_type in learning_rates:
             for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
-                _, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGLSTMv1'][metric], nan_policy='omit')
+                _, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGLSTMv0'][metric], nan_policy='omit')
                 t_test_results[(model_type, metric)] = p_value
 
         # Compile the final table data with mean metrics and p-values from t-tests

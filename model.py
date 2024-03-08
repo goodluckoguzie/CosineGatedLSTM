@@ -96,7 +96,6 @@ class RAUCell(nn.Module):
 
 
 ########################################################################
-
 class CGLSTMCellv1(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers=1):
         super(CGLSTMCellv1, self).__init__()
@@ -115,20 +114,21 @@ class CGLSTMCellv1(nn.Module):
         
     def forward(self, x):
         # Initialize hidden state and cell state
-        hidden = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        
+        # hidden = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+        hidden_initialized = torch.zeros(input_mapped.size(0), input_mapped.size(1), input_mapped.size(2))
+
         # Map input for cosine similarity calculation
         input_mapped = self.input_mapped(x)
-        # Calculate the average cell state for use in cosine similarity
-        hidden_mapped_avg = hidden.mean(dim=0).unsqueeze(1).expand(-1, input_mapped.size(1), -1)
+        # # Calculate the average cell state for use in cosine similarity
+        # hidden_mapped_avg = hidden.mean(dim=0).unsqueeze(1).expand(-1, input_mapped.size(1), -1)
 
-        # Adjust hidden to match input_mapped dimensions. Use only the last layer's hidden state.
-        # Note: You might want to use a different strategy depending on your model's requirements.
-        hidden_adjusted = hidden_mapped_avg  # Taking the last layer's hidden state
+        # # Adjust hidden to match input_mapped dimensions. Use only the last layer's hidden state.
+        # # Note: You might want to use a different strategy depending on your model's requirements.
+        # hidden_adjusted = hidden_mapped_avg  # Taking the last layer's hidden state
 
         # Calculate attention weights using cosine similarity
         # Ensure hidden is adjusted to have the same dimensions as input_mapped for cosine similarity calculation.
-        gate_ic = F.cosine_similarity(input_mapped, hidden_adjusted, dim=2, eps=1e-6).unsqueeze(-1)
+        gate_ic = F.cosine_similarity(input_mapped, hidden_initialized, dim=2, eps=1e-6).unsqueeze(-1)
         attention_weights = torch.sigmoid(gate_ic)
         
         # Modulate input with attention weights
@@ -150,6 +150,59 @@ class CGLSTMCellv1(nn.Module):
         output = lstm_out * gate_co
         
         return output
+# class CGLSTMCellv1(nn.Module):
+#     def __init__(self, input_size, hidden_size, num_layers=1):
+#         super(CGLSTMCellv1, self).__init__()
+#         self.num_layers = num_layers
+#         self.hidden_size = hidden_size
+#         self.input_mapped = nn.Linear(input_size, hidden_size)
+#         self.lstm = nn.LSTM(hidden_size, hidden_size, num_layers, batch_first=True)
+        
+#         for name, param in self.lstm.named_parameters():
+#             if 'weight_ih' in name:
+#                 nn.init.xavier_uniform_(param.data)
+#             elif 'weight_hh' in name:
+#                 nn.init.xavier_uniform_(param.data)
+#             elif 'bias' in name:
+#                 param.data.fill_(0)
+        
+#     def forward(self, x):
+#         # Initialize hidden state and cell state
+#         hidden = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+        
+#         # Map input for cosine similarity calculation
+#         input_mapped = self.input_mapped(x)
+#         # Calculate the average cell state for use in cosine similarity
+#         hidden_mapped_avg = hidden.mean(dim=0).unsqueeze(1).expand(-1, input_mapped.size(1), -1)
+
+#         # Adjust hidden to match input_mapped dimensions. Use only the last layer's hidden state.
+#         # Note: You might want to use a different strategy depending on your model's requirements.
+#         hidden_adjusted = hidden_mapped_avg  # Taking the last layer's hidden state
+
+#         # Calculate attention weights using cosine similarity
+#         # Ensure hidden is adjusted to have the same dimensions as input_mapped for cosine similarity calculation.
+#         gate_ic = F.cosine_similarity(input_mapped, hidden_adjusted, dim=2, eps=1e-6).unsqueeze(-1)
+#         attention_weights = torch.sigmoid(gate_ic)
+        
+#         # Modulate input with attention weights
+#         input_modulated = input_mapped + (attention_weights * input_mapped)
+        
+#         # Proceed with LSTM
+#         lstm_out, (hn, cn) = self.lstm(input_modulated)
+        
+#         # Calculate the average cell state for use in cosine similarity
+#         cell_mapped_avg = cn.mean(dim=0).unsqueeze(1).expand(-1, input_mapped.size(1), -1)
+        
+#         # Compute cosine similarity gates
+#         gate_co = F.cosine_similarity(cell_mapped_avg, lstm_out, dim=2, eps=1e-6).unsqueeze(-1)
+        
+#         # Normalize and apply sigmoid
+#         gate_co = torch.sigmoid((gate_co + 1) / 2)
+        
+#         # Combine modulated hidden states as the final output
+#         output = lstm_out * gate_co
+        
+#         return output
 
 ############################################################################
 class CGLSTMCellv0(nn.Module):
@@ -209,50 +262,89 @@ import math
 
 
 ####################################################################
+# class TransformerModel(nn.Module):
+#     def __init__(self, input, hidden_size, num_layers, dropout=0.0):
+#         super(TransformerModel, self).__init__()
+#         self.pos_encoder = PositionalEncoding(hidden_size)
+
+#         self.input_linear = nn.Linear(input, hidden_size)
+#         self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=1, dropout=dropout)
+#         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
+#         self.init_weights()
+
+#     def init_weights(self):
+#         initrange = 0.1
+#         self.input_linear.bias.data.zero_()
+#         self.input_linear.weight.data.uniform_(-initrange, initrange)
+
+#     def _generate_square_subsequent_mask(self, sz):
+#         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+#         mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+#         return mask
+
+#     def forward(self, src):
+#         device = src.device
+#         src = self.input_linear(src)
+#         src = src.permute(1, 0, 2)
+#         src = self.pos_encoder(src)
+#         mask = self._generate_square_subsequent_mask(src.size(0)).to(device)
+#         output = self.transformer_encoder(src, mask)
+#         output = output.permute(1, 0, 2)
+#         return output
+
+# class PositionalEncoding(nn.Module):
+#     def __init__(self, d_model, max_len=10_000):
+#         super(PositionalEncoding, self).__init__()
+#         pe = torch.zeros(max_len, d_model)
+#         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+#         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+#         pe[:, 0::2] = torch.sin(position * div_term)
+#         pe[:, 1::2] = torch.cos(position * div_term)
+#         pe = pe.unsqueeze(0).transpose(0, 1)
+#         self.register_buffer('pe', pe)
+
+#     def forward(self, x):
+#         x = x + self.pe[:x.size(0), :]
+#         return x
+
 class TransformerModel(nn.Module):
-    def __init__(self, input, hidden_size, num_layers, dropout=0.0):
+    def __init__(self, input_size, hidden_size, num_layers, dropout=0.0,nhead=1):
+
         super(TransformerModel, self).__init__()
-        self.pos_encoder = PositionalEncoding(hidden_size)
+        
+        # Defining the model's parameters
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
 
-        self.input_linear = nn.Linear(input, hidden_size)
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=8, dropout=dropout)
-        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
-        self.init_weights()
+        # Linear layer to get the inputs to the correct size
+        self.input_linear = nn.Linear(input_size, hidden_size)
 
-    def init_weights(self):
-        initrange = 0.1
-        self.input_linear.bias.data.zero_()
-        self.input_linear.weight.data.uniform_(-initrange, initrange)
+        # Define the Transformer layers
+        transformer_layer = nn.TransformerEncoderLayer(
+            d_model=hidden_size, 
+            nhead=nhead
+        )
+        self.transformer_encoder = nn.TransformerEncoder(transformer_layer, num_layers)
 
-    def _generate_square_subsequent_mask(self, sz):
-        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-        return mask
-
-    def forward(self, src):
-        device = src.device
-        src = self.input_linear(src)
-        src = src.permute(1, 0, 2)
-        src = self.pos_encoder(src)
-        mask = self._generate_square_subsequent_mask(src.size(0)).to(device)
-        output = self.transformer_encoder(src, mask)
-        output = output.permute(1, 0, 2)
-        return output
-
-class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, max_len=11_000):
-        super(PositionalEncoding, self).__init__()
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
+        # Output layer to map the hidden representation to the desired output size
+        self.output_linear = nn.Linear(hidden_size, input_size)
 
     def forward(self, x):
-        x = x + self.pe[:x.size(0), :]
-        return x
+        # Transform input to the correct dimension
+        x = self.input_linear(x)
+        
+        # For Transformer, we need (sequence_length, batch_size, embedding_dim)
+        x = x.permute(1, 0, 2)
+        
+        # Pass the sequence through the Transformer layers
+        transformer_out = self.transformer_encoder(x)
+        
+        # Transform output to the desired size
+        output = transformer_out.permute(1, 0, 2)
+
+        return output
+
 ####################################################     ADDING PROBLEM  #######################################################################
 
 class AP_RecurrentModel(nn.Module):
@@ -417,7 +509,7 @@ class RowWise_RecurrentModel(nn.Module):
 
 
 class SA_RecurrentModel(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, hidden_size, output_size, model_type='GRU', dropout=0.0):
+    def __init__(self, vocab_size, embedding_dim, hidden_size, output_size, model_type='GRU', dropout=0.5):
         super(SA_RecurrentModel, self).__init__()
         self.model_type = model_type
         self.hidden_size = hidden_size
@@ -428,13 +520,13 @@ class SA_RecurrentModel(nn.Module):
         if model_type == 'RAUCell':
             self.recurrent_layer = RAUCell(embedding_dim, hidden_size)
         elif model_type == 'LSTM':
-            self.recurrent_layer = nn.LSTM(embedding_dim, hidden_size,batch_first=True)
+            self.recurrent_layer = nn.LSTM(embedding_dim, hidden_size)
         elif model_type == 'CGLSTMv0':
             self.recurrent_layer = CGLSTMCellv0(embedding_dim, hidden_size)
         elif model_type == 'CGLSTMv1':
             self.recurrent_layer = CGLSTMCellv1(embedding_dim, hidden_size)
         elif model_type == 'GRU':
-            self.recurrent_layer = nn.GRU(embedding_dim, hidden_size,batch_first=True)
+            self.recurrent_layer = nn.GRU(embedding_dim, hidden_size)
         elif model_type == 'Transformer':
             # Assuming num_layers is fixed for simplicity, adjust as needed
             self.recurrent_layer = TransformerModel(embedding_dim, hidden_size, num_layers=1, dropout=dropout)
@@ -487,9 +579,9 @@ class LanguageModel(nn.Module):
         if model_type == 'RAUCell':
             self.rnn = RAUCell(embedding_dim, hidden_dim)
         elif model_type == 'LSTM':
-            self.rnn = nn.LSTM(embedding_dim, hidden_dim,batch_first=True)
+            self.rnn = nn.LSTM(embedding_dim, hidden_dim)
         elif model_type == 'GRU':
-            self.rnn = nn.GRU(embedding_dim, hidden_dim,batch_first=True)
+            self.rnn = nn.GRU(embedding_dim, hidden_dim)
         elif model_type == 'CGLSTMv0':
             self.rnn = CGLSTMCellv0(embedding_dim, hidden_dim)
         elif model_type == 'CGLSTMv1':

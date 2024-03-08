@@ -183,8 +183,8 @@ def main():
     seeds = [10, 20,35,64,2]  # Seeds for reproducibility
 
     learning_rates = {
-        'Transformer': 1e-3,'LSTM': 1e-3, 'RAUCell': 1e-3,
-        'CGLSTMv0': 1e-3, 'CGLSTMv1': 1e-3, 'GRU': 1e-3
+       'LSTM': 1e-3,
+        'CGLSTMv0': 1e-3, 'CGLSTMv1': 1e-3, 'GRU': 1e-3, 'Transformer': 1e-3, 'RAUCell': 1e-3
     }
 
 
@@ -254,7 +254,7 @@ def prepare_and_display_final_results(all_model_results, learning_rates, seeds):
     t_test_results = {}
     for model_type in learning_rates:
         for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
-            _, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGLSTMv1'][metric], nan_policy='omit')
+            _, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGLSTMv0'][metric], nan_policy='omit')
             t_test_results[(model_type, metric)] = p_value
 
     # Creating the final table

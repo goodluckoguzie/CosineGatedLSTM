@@ -68,7 +68,7 @@ def train_and_evaluate(model_type, lr, seed, vocab, train_loader, valid_loader, 
     HIDDEN_DIM = 200
     NUM_LAYERS = 1
     DROPOUT = 0.2
-    N_EPOCHS = 35
+    N_EPOCHS = 30
 
     model = LanguageModel(len(vocab), EMBEDDING_DIM, HIDDEN_DIM, NUM_LAYERS, DROPOUT, model_type).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -174,10 +174,10 @@ def prepare_and_display_final_results(all_model_results):
         'Model Type': [], 'Mean Train Perplexity': [], 'Std Train Perplexity': [],
         'Mean Valid Perplexity': [], 'Std Valid Perplexity': [], 'Mean Test Perplexity': [],
         'Std Test Perplexity': [], 'Mean Train Time': [], 'Mean Test Time': [], 'Mean Num Parameters': [],
-        'P-Value Train PPL vs. CGLSTMv1': [], 'P-Value Valid PPL vs. CGLSTMv1': [], 'P-Value Test PPL vs. CGLSTMv1': []
+        'P-Value Train PPL vs. CGLSTMv0': [], 'P-Value Valid PPL vs. CGLSTMv0': [], 'P-Value Test PPL vs. CGLSTMv0': []
     }
     
-    benchmark_model = 'CGLSTMv1'
+    benchmark_model = 'CGLSTMv0'
     benchmark_results = {'train_ppl': [], 'valid_ppl': [], 'test_ppl': []}
     
     if benchmark_model in all_model_results:
@@ -234,8 +234,8 @@ def prepare_and_display_final_results(all_model_results):
 def main():
     BATCH_SIZE = 20
     # learning_rates = {'GRU': 1e-3,}
-    learning_rates = {'Transformer': 1e-3,'CGLSTMv0': 1e-3,'LSTM': 1e-3,'GRU': 1e-3,'GRU': 1e-3,'GRU': 1e-3, 'RAUCell': 1e-3,'CGLSTMv1': 1e-3}
-    seeds = [42,6,8,6,4]
+    learning_rates = {'CGLSTMv0': 1e-3,'LSTM': 1e-3,'GRU': 1e-3,'CGLSTMv1': 1e-3, 'Transformer': 1e-3,'RAUCell': 1e-3}
+    seeds = [42,40,80,66,4]
 
     vocab, train_loader, valid_loader, test_loader = load_data(BATCH_SIZE)
     all_model_results = {}

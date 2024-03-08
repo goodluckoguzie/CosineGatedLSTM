@@ -270,11 +270,11 @@ def main():
     dropout = 0.2
 
     # Define model types and their respective learning rates
-    model_types = ['Transformer','LSTM', 'GRU', 'RAUCell', 'CGLSTMv0', 'CGLSTMv1']
+    model_types = ['LSTM', 'GRU', 'CGLSTMv0', 'CGLSTMv1','Transformer', 'RAUCell']
     learning_rates = [1e-3,1e-3, 1e-3, 1e-3, 1e-3, 1e-3]  # Example learning rates
 
     # Set seeds for reproducibility
-    seeds = [42, 1337, 2022, 777, 999]
+    seeds = [42, 64, 20, 50, 10]
 
     # Store all model results
     all_model_results = {}
@@ -317,11 +317,11 @@ def main():
 
     # Perform independent two-sample t-tests between models for statistical significance on validation, training, and test accuracy
     t_test_results = {'val_accuracy': {}, 'train_accuracy': {}, 'test_accuracy': {}}
-    baseline_val_accuracies = [r['val_accuracies'] for r in all_model_results['CGLSTMv1'].values()]
-    baseline_train_accuracies = [r['train_accuracies'] for r in all_model_results['CGLSTMv1'].values()]
-    baseline_test_accuracies = [r['test_accuracies'] for r in all_model_results['CGLSTMv1'].values()]
+    baseline_val_accuracies = [r['val_accuracies'] for r in all_model_results['CGLSTMv0'].values()]
+    baseline_train_accuracies = [r['train_accuracies'] for r in all_model_results['CGLSTMv0'].values()]
+    baseline_test_accuracies = [r['test_accuracies'] for r in all_model_results['CGLSTMv0'].values()]
     for model_type in model_types:
-        if model_type == 'CGLSTMv1':  # Skip baseline comparison with itself
+        if model_type == 'CGLSTMv0':  # Skip baseline comparison with itself
             continue
         val_accuracies = [r['val_accuracies'] for r in all_model_results[model_type].values()]
         train_accuracies = [r['train_accuracies'] for r in all_model_results[model_type].values()]
