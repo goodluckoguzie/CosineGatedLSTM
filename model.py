@@ -92,7 +92,7 @@ class CGLSTMCellv1(nn.Module):
 
         # Calculate attention weights using cosine similarity
         # Ensure hidden is adjusted to have the same dimensions as input_mapped for cosine similarity calculation.
-        gate_ic = F.cosine_similarity(input_mapped, hidden_initialized, dim=2, eps=1e-6).unsqueeze(-1)
+        gate_ic = F.cosine_similarity(input_mapped, hidden_initialized, dim=2, eps=1e-6).unsqueeze(-1).to(x.device)
         attention_weights = torch.sigmoid(gate_ic)
         
         # Modulate input with attention weights
