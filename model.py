@@ -76,12 +76,13 @@ class CGLSTMCellv1(nn.Module):
                 param.data.fill_(0)
         
     def forward(self, x):
+        # Map input for cosine similarity calculation
+        input_mapped = self.input_mapped(x)
         # Initialize hidden state and cell state
         # hidden = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         hidden_initialized = torch.zeros(input_mapped.size(0), input_mapped.size(1), input_mapped.size(2))
 
-        # Map input for cosine similarity calculation
-        input_mapped = self.input_mapped(x)
+
         # # Calculate the average cell state for use in cosine similarity
         # hidden_mapped_avg = hidden.mean(dim=0).unsqueeze(1).expand(-1, input_mapped.size(1), -1)
 
