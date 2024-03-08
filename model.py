@@ -10,39 +10,11 @@ from typing import Optional, Tuple
 
 
 class RAUCell(nn.Module):
-    """
-    Recurrent Attention Unit (RAU) cell.
-
-    This class implements a variation of the GRU cell, incorporating an additional
-    attention mechanism. The RAU cell computes attention-based hidden states 
-    alongside the standard reset and update gates of a GRU.
-    """
     def __init__(self, input_size, hidden_size):
-        """
-        Initializes the RAUCell.
-
-        Args:
-            input_size (int): The number of expected features in the input `x`.
-            hidden_size (int): The number of features in the hidden state.
-        """
         super(RAUCell, self).__init__()
-        self.hidden_size = hidden_size
-        self.input_size = input_size
-
-        # Weights for computing reset and update gates
-        self.weight_xr = nn.Parameter(torch.Tensor(hidden_size, input_size))
-        self.weight_hr = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
-        self.bias_r = nn.Parameter(torch.Tensor(hidden_size))
-        
-        self.weight_xz = nn.Parameter(torch.Tensor(hidden_size, input_size))
-        self.weight_hz = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
-        self.bias_z = nn.Parameter(torch.Tensor(hidden_size))
-        
-        # Weights for computing candidate hidden state
-        self.weight_xh = nn.Parameter(torch.Tensor(hidden_size, input_size))
-        self.weight_hh = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
-        self.bias_h = nn.Parameter(torch.Tensor(hidden_size))
-        
+        # Initialize GRU layer
+        self.gru = nn.GRU(input_size, hidden_size, batch_first=True)
+        # Initialize parameters for attention
         # Weights for computing attention
         self.weight_c = nn.Parameter(torch.Tensor(hidden_size, input_size + hidden_size))
         self.bias_c = nn.Parameter(torch.Tensor(hidden_size))
@@ -50,50 +22,41 @@ class RAUCell(nn.Module):
         self.weight_hat_h = nn.Parameter(torch.Tensor(hidden_size, input_size + hidden_size))
         self.bias_hat_h = nn.Parameter(torch.Tensor(hidden_size))
 
+        # Reset parameters
         self.reset_parameters()
-
+    
     def reset_parameters(self):
-        """
-        Initializes weights using a uniform distribution with range based on hidden size.
-        """
-        stdv = 1.0 / self.hidden_size ** 0.5
-        for weight in self.parameters():
-            nn.init.uniform_(weight, -stdv, stdv)
+        # Initialize weights and biases
+        nn.init.kaiming_uniform_(self.weight_c, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.weight_hat_h, a=math.sqrt(5))
+        nn.init.zeros_(self.bias_c)
+        nn.init.zeros_(self.bias_hat_h)
 
-    def forward(self, x, hidden):
-        """
-        Defines the forward pass of the RAUCell.
+    def create_prv_output(self, output):
+        batch_size, seq_len, hidden_size = output.shape
+        zero_tensor = torch.zeros(batch_size, 1, hidden_size, device=output.device)
+        prv_output = torch.cat((zero_tensor, output[:, :-1, :]), dim=1)
+        return prv_output
 
-        Args:
-            x (Tensor): The input tensor at the current time step.
-            hidden (Tensor): The hidden state tensor from the previous time step.
+    def forward(self, x):
 
-        Returns:
-            Tensor: The updated hidden state.
-        """
+        output, hidden = self.gru(x)
+        # Replace the previous method with the new method to get prv_output
+        prv_output = self.create_prv_output(output)
+
         # Concatenate x and hidden for computing attention
-        combined = torch.cat((x, hidden), 1)
-        
-        # Compute attention weights
-        c_t = F.linear(combined, self.weight_c, self.bias_c)
-        a_t = F.softmax(c_t, dim=1)
-        
-        # Compute attention-based hidden state
-        hat_h_t = F.relu(F.linear(combined, self.weight_hat_h, self.bias_hat_h))
+        combined = torch.cat((x, prv_output), dim=2)  # This concatenates along the feature dimension
+    
+        c_t = torch.tanh(F.linear(combined, self.weight_c, self.bias_c))
+        a_t = F.softmax(c_t, dim=2)
+        hat_h_t = torch.tanh(F.linear(combined, self.weight_hat_h, self.bias_hat_h))
         hat_h_t = a_t * hat_h_t
-        
-        # Compute reset and update gates
-        r_t = torch.sigmoid(F.linear(x, self.weight_xr, self.bias_r) + F.linear(hidden, self.weight_hr))
-        z_t = torch.sigmoid(F.linear(x, self.weight_xz, self.bias_z) + F.linear(hidden, self.weight_hz))
-        
-        # Compute candidate hidden state
-        h_tilde = torch.tanh(F.linear(x, self.weight_xh, self.bias_h) + F.linear(r_t * hidden, self.weight_hh))
-        
-        # Compute the final hidden state
-        h_t = (1 - z_t) * h_tilde + z_t * hidden + hat_h_t
 
-        return h_t
+        # Combine GRU output with attention-based modifications
+        output = output + hat_h_t
 
+
+        return output,hidden
 
 ########################################################################
 class CGLSTMCellv1(nn.Module):
@@ -357,8 +320,7 @@ class AP_RecurrentModel(nn.Module):
         elif model_type == 'LSTM':
             self.recurrent_layer = nn.LSTM(input_size, hidden_size, batch_first=True)
         elif model_type == 'RAUCell':
-            self.recurrent_layer = RAUCell(input_size, hidden_size)  # Assuming RAUCell is defined correctly
-        # Placeholder for other model types, assumed to be defined elsewhere
+            self.recurrent_layer = RAUCell(input_size, hidden_size)
         elif model_type == 'CGLSTMv0':
             self.recurrent_layer = CGLSTMCellv0(input_size, hidden_size)
         elif model_type == 'CGLSTMv1':
@@ -371,18 +333,9 @@ class AP_RecurrentModel(nn.Module):
         self.fc = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
-        if self.model_type in ['GRU', 'LSTM']:
+        if self.model_type in ['GRU', 'LSTM','RAUCell']:
             output, _ = self.recurrent_layer(x)
             last_output = output[:, -1, :]
-
-        elif self.model_type == 'RAUCell':
-            batch_size, seq_len, _ = x.size()
-            h = torch.zeros(batch_size, self.hidden_size).to(x.device)
-            for t in range(seq_len):
-                x_t = x[:, t, :]
-                h = self.recurrent_layer(x_t, h)
-            last_output = h
-
         elif self.model_type in ['CGLSTMv1','CGLSTMv0', 'Transformer']:
             # Adjust these according to the actual behavior of these models
             output = self.recurrent_layer(x)
@@ -393,7 +346,6 @@ class AP_RecurrentModel(nn.Module):
 
         out = self.fc(last_output)
         return out
-
 
 ####################################################     FASHION-MNIST  #######################################################################
 
@@ -421,18 +373,9 @@ class FM_RecurrentModel(nn.Module):
 
         self.fc = nn.Linear(hidden_size, output_size)
     def forward(self, x):
-        if self.model_type in ['GRU', 'LSTM']:
+        if self.model_type in ['GRU', 'LSTM', 'RAUCell']:
             output, _ = self.recurrent_layer(x)
             last_output = output[:, -1, :]
-            # print(last_output.shape)
-
-        elif self.model_type == 'RAUCell':
-            batch_size, seq_len, _ = x.size()
-            h = torch.zeros(batch_size, self.hidden_size).to(x.device)
-            for t in range(seq_len):
-                x_t = x[:, t, :]
-                h = self.recurrent_layer(x_t, h)
-            last_output = h
             # print(last_output.shape)
 
         elif self.model_type in ['CGLSTMv1','CGLSTMv0', 'Transformer']:
@@ -478,18 +421,9 @@ class RowWise_RecurrentModel(nn.Module):
 
         self.fc = nn.Linear(hidden_size, output_size)
     def forward(self, x):
-        if self.model_type in ['GRU', 'LSTM']:
+        if self.model_type in ['GRU', 'LSTM','RAUCell']:
             output, _ = self.recurrent_layer(x)
             last_output = output[:, -1, :]
-            # print(last_output.shape)
-
-        elif self.model_type == 'RAUCell':
-            batch_size, seq_len, _ = x.size()
-            h = torch.zeros(batch_size, self.hidden_size).to(x.device)
-            for t in range(seq_len):
-                x_t = x[:, t, :]
-                h = self.recurrent_layer(x_t, h)
-            last_output = h
             # print(last_output.shape)
 
         elif self.model_type in ['CGLSTMv1','CGLSTMv0', 'Transformer']:
@@ -541,16 +475,9 @@ class SA_RecurrentModel(nn.Module):
     def forward(self, x):
         embeds = self.embedding(x)
 
-        if self.model_type in ['GRU', 'LSTM']:
+        if self.model_type in ['GRU', 'LSTM','RAUCell']:
             output, _ = self.recurrent_layer(embeds)
 
-        elif self.model_type == 'RAUCell':
-            h = torch.zeros(x.size(0), self.hidden_size).to(x.device)
-            rnn_outs = []
-            for t in range(x.size(1)):
-                h = self.recurrent_layer(embeds[:, t], h)
-            rnn_outs.append(h.unsqueeze(1))
-            output = torch.cat(rnn_outs, dim=1)
 
         elif self.model_type in ['CGLSTMv1','CGLSTMv0', 'Transformer']:
             # Adjust these according to the actual behavior of these models
@@ -603,30 +530,31 @@ class LanguageModel(nn.Module):
             output = self.rnn(embedded)
             batch_size, seq_len, _ = output.size()  
 
-        elif self.model_type in ['LSTM','GRU']:
+        elif self.model_type in ['LSTM','GRU','RAUCell']:
             if embedded.dim() == 2:
                 embedded = embedded.unsqueeze(1)  # Add a sequence length of 1
             output,_ = self.rnn(embedded)
             batch_size, seq_len, _ = output.size() 
         else:
-            if embedded.dim() == 2:
-                embedded = embedded.unsqueeze(1)  # Add a sequence length of 1
-            batch_size, seq_len, _ = embedded.size()
+            print("choose the right model")
+        #     if embedded.dim() == 2:
+        #         embedded = embedded.unsqueeze(1)  # Add a sequence length of 1
+        #     batch_size, seq_len, _ = embedded.size()
 
-            if isinstance(self.rnn, (RAUCell)):
-                hidden = torch.zeros(batch_size, self.rnn.hidden_size, device=text.device)
-            output = []
-            for timestep in range(seq_len):
-                if isinstance(self.rnn, (RAUCell)):
-                    hidden = self.rnn(embedded[:, timestep, :], hidden)
-                    output.append(hidden.unsqueeze(1))
-            if self.model_type == 'RAUCell':
-                output = torch.cat(output, dim=1)
-                output = self.dropout(output)
+        #     if isinstance(self.rnn, (RAUCell)):
+        #         hidden = torch.zeros(batch_size, self.rnn.hidden_size, device=text.device)
+        #     output = []
+        #     for timestep in range(seq_len):
+        #         if isinstance(self.rnn, (RAUCell)):
+        #             hidden = self.rnn(embedded[:, timestep, :], hidden)
+        #             output.append(hidden.unsqueeze(1))
+            # if self.model_type == 'RAUCell':
+            #     output = torch.cat(output, dim=1)
+            #     output = self.dropout(output)
 
         # Apply the fully connected layer to the output
-        decoded = self.fc(output.reshape(-1, self.hidden_dim if self.model_type in ['LSTM','GRU','CGLSTMv1','CGLSTMv0', 'Transformer'] else self.rnn.hidden_size))
-        return decoded.view(-1 if self.model_type in ['LSTM','GRU','CGLSTMv1','CGLSTMv0', 'Transformer'] else batch_size, seq_len, self.vocab_size)
+        decoded = self.fc(output.reshape(-1, self.hidden_dim if self.model_type in ['LSTM','GRU','CGLSTMv1','CGLSTMv0', 'Transformer','RAUCell'] else self.rnn.hidden_size))
+        return decoded.view(-1 if self.model_type in ['LSTM','GRU','CGLSTMv1','CGLSTMv0', 'Transformer','RAUCell'] else batch_size, seq_len, self.vocab_size)
 
 
 
@@ -818,3 +746,91 @@ class LanguageModel(nn.Module):
 #         hx_modulated = hx + (hx * gate_co)
 
 #         return hx_modulated, cx
+
+
+
+# class RAUCell(nn.Module):
+#     """
+#     Recurrent Attention Unit (RAU) cell.
+
+#     This class implements a variation of the GRU cell, incorporating an additional
+#     attention mechanism. The RAU cell computes attention-based hidden states 
+#     alongside the standard reset and update gates of a GRU.
+#     """
+#     def __init__(self, input_size, hidden_size):
+#         """
+#         Initializes the RAUCell.
+
+#         Args:
+#             input_size (int): The number of expected features in the input `x`.
+#             hidden_size (int): The number of features in the hidden state.
+#         """
+#         super(RAUCell, self).__init__()
+#         self.hidden_size = hidden_size
+#         self.input_size = input_size
+
+#         # Weights for computing reset and update gates
+#         self.weight_xr = nn.Parameter(torch.Tensor(hidden_size, input_size))
+#         self.weight_hr = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
+#         self.bias_r = nn.Parameter(torch.Tensor(hidden_size))
+        
+#         self.weight_xz = nn.Parameter(torch.Tensor(hidden_size, input_size))
+#         self.weight_hz = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
+#         self.bias_z = nn.Parameter(torch.Tensor(hidden_size))
+        
+#         # Weights for computing candidate hidden state
+#         self.weight_xh = nn.Parameter(torch.Tensor(hidden_size, input_size))
+#         self.weight_hh = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
+#         self.bias_h = nn.Parameter(torch.Tensor(hidden_size))
+        
+#         # Weights for computing attention
+#         self.weight_c = nn.Parameter(torch.Tensor(hidden_size, input_size + hidden_size))
+#         self.bias_c = nn.Parameter(torch.Tensor(hidden_size))
+        
+#         self.weight_hat_h = nn.Parameter(torch.Tensor(hidden_size, input_size + hidden_size))
+#         self.bias_hat_h = nn.Parameter(torch.Tensor(hidden_size))
+
+#         self.reset_parameters()
+
+#     def reset_parameters(self):
+#         """
+#         Initializes weights using a uniform distribution with range based on hidden size.
+#         """
+#         stdv = 1.0 / self.hidden_size ** 0.5
+#         for weight in self.parameters():
+#             nn.init.uniform_(weight, -stdv, stdv)
+
+#     def forward(self, x, hidden):
+#         """
+#         Defines the forward pass of the RAUCell.
+
+#         Args:
+#             x (Tensor): The input tensor at the current time step.
+#             hidden (Tensor): The hidden state tensor from the previous time step.
+
+#         Returns:
+#             Tensor: The updated hidden state.
+#         """
+#         # Concatenate x and hidden for computing attention
+#         combined = torch.cat((x, hidden), 1)
+        
+#         # Compute attention weights
+#         c_t = F.linear(combined, self.weight_c, self.bias_c)
+#         a_t = F.softmax(c_t, dim=1)
+        
+#         # Compute attention-based hidden state
+#         hat_h_t = F.relu(F.linear(combined, self.weight_hat_h, self.bias_hat_h))
+#         hat_h_t = a_t * hat_h_t
+        
+#         # Compute reset and update gates
+#         r_t = torch.sigmoid(F.linear(x, self.weight_xr, self.bias_r) + F.linear(hidden, self.weight_hr))
+#         z_t = torch.sigmoid(F.linear(x, self.weight_xz, self.bias_z) + F.linear(hidden, self.weight_hz))
+        
+#         # Compute candidate hidden state
+#         h_tilde = torch.tanh(F.linear(x, self.weight_xh, self.bias_h) + F.linear(r_t * hidden, self.weight_hh))
+        
+#         # Compute the final hidden state
+#         h_t = (1 - z_t) * h_tilde + z_t * hidden + hat_h_t
+
+#         return h_t
+
