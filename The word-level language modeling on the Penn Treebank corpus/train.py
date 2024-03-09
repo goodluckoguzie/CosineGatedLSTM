@@ -234,7 +234,7 @@ def prepare_and_display_final_results(all_model_results):
 def main():
     BATCH_SIZE = 20
     # learning_rates = {'GRU': 1e-3,}
-    learning_rates = {'CGLSTMv0': 1e-3,'LSTM': 1e-3,'GRU': 1e-3,'CGLSTMv1': 1e-3, 'Transformer': 1e-3,'RAUCell': 1e-3}
+    learning_rates = {'GRU': 1e-3,'CGLSTMv1': 1e-3,'CGLSTMv0': 1e-3,'LSTM': 1e-3, 'Transformer': 1e-3,'RAUCell': 1e-3}
     seeds = [42,40,80,66,4]
 
     vocab, train_loader, valid_loader, test_loader = load_data(BATCH_SIZE)

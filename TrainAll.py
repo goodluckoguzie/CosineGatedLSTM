@@ -40,12 +40,13 @@ import os
 
 # List of directories to navigate through. Each directory contains a different project or experiment.
 directories = [
-    'sentiment analysis experiment on the IMDB movie reviews dataset',  # Directory for sentiment analysis project
+
+    'fashion-MNIST_item_classification',  # Directory for fashion-MNIST classification project
+    'row-wise MNIST handwritten digits recognition',  # Directory for MNIST digits recognition project,
+       'sentiment analysis experiment on the IMDB movie reviews dataset',  # Directory for sentiment analysis project
     'The word-level language modeling on the Penn Treebank corpus',     # Directory for language modeling project
 
     'addingproblem',  # Directory for an experiment on the adding problem
-    'fashion-MNIST_item_classification',  # Directory for fashion-MNIST classification project
-    'row-wise MNIST handwritten digits recognition'  # Directory for MNIST digits recognition project
 ]
 
 # Save the current working directory to navigate back to it later

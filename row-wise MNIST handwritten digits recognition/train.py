@@ -286,8 +286,8 @@ def main():
     if not os.path.exists('results'):
         os.makedirs('results')
 
-    learning_rates = {'Transformer': Transformer_rate,'LSTM': LSTM_learning_rate, 'CGLSTMv0': CGLSTMCellv0_learning_rate, 'CGLSTMv1': CGLSTMCellv1_learning_rate, 'RAUCell': RAU_learning_rate, 'GRU': GRU_learning_rate}
-    seeds = [42, 6, 456, 789, 112]
+    learning_rates = {'CGLSTMv0': CGLSTMCellv0_learning_rate, 'CGLSTMv1': CGLSTMCellv1_learning_rate,'Transformer': Transformer_rate,'LSTM': LSTM_learning_rate,  'RAUCell': RAU_learning_rate, 'GRU': GRU_learning_rate}
+    seeds = [42, 6, 456]
     all_model_results = {}
 
     for model_type, lr in learning_rates.items():

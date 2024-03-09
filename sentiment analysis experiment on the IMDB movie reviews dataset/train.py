@@ -270,11 +270,11 @@ def main():
     dropout = 0.2
 
     # Define model types and their respective learning rates
-    model_types = ['LSTM', 'GRU', 'CGLSTMv0', 'CGLSTMv1','Transformer', 'RAUCell']
+    model_types = ['GRU', 'CGLSTMv0', 'CGLSTMv1','LSTM', 'Transformer', 'RAUCell']
     learning_rates = [1e-3,1e-3, 1e-3, 1e-3, 1e-3, 1e-3]  # Example learning rates
 
     # Set seeds for reproducibility
-    seeds = [42, 64, 20, 50, 10]
+    seeds = [42, 64, 20]
 
     # Store all model results
     all_model_results = {}

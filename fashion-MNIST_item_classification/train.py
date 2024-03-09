@@ -180,11 +180,11 @@ def main():
     num_epochs = 213  # Number of epochs for training
     batch_size = 128  # Batch size for training and evaluation
 
-    seeds = [10, 20,35,64,2]  # Seeds for reproducibility
+    seeds = [10, 20,35]  # Seeds for reproducibility
 
     learning_rates = {
-       'LSTM': 1e-3,
-        'CGLSTMv0': 1e-3, 'CGLSTMv1': 1e-3, 'GRU': 1e-3, 'Transformer': 1e-3, 'RAUCell': 1e-3
+       
+        'CGLSTMv0': 1e-3,'LSTM': 1e-3, 'CGLSTMv1': 1e-3, 'GRU': 1e-3, 'Transformer': 1e-3, 'RAUCell': 1e-3
     }
 
 
