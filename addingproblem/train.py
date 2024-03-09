@@ -205,11 +205,11 @@ def main():
     hidden_size = 128
     batch_size = 20
     num_steps = 50
-    T_values = [1000]
-    train_set_size = 100_000
+    T_values = [500]
+    train_set_size = 50_000
     val_set_size = 10_000
     test_set_size = 10_000
-    seeds = [42, 56, 30,59,6]
+    seeds = [42, 56]
     learning_rates = { 'Transformer': 1e-3,'GRU': 1e-3, 'LSTM': 1e-3, 'CGLSTMv0': 1e-3, 'CGLSTMv1': 1e-3,'RAUCell': 1e-3,}
     
     all_model_results = {}

@@ -180,7 +180,7 @@ def main():
     num_epochs = 213  # Number of epochs for training
     batch_size = 128  # Batch size for training and evaluation
 
-    seeds = [10, 20,35]  # Seeds for reproducibility
+    seeds = [10, 20]  # Seeds for reproducibility
 
     learning_rates = {
        
