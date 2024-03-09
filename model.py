@@ -80,7 +80,7 @@ class CGLSTMCellv1(nn.Module):
         input_mapped = self.input_mapped(x)
         # Initialize hidden state and cell state
         # hidden = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        hidden_initialized = torch.zeros(input_mapped.size(0), input_mapped.size(1), input_mapped.size(2))
+        hidden_initialized = torch.zeros(input_mapped.size(0), input_mapped.size(1), input_mapped.size(2)).to(x.device)
 
 
         # # Calculate the average cell state for use in cosine similarity
@@ -92,7 +92,7 @@ class CGLSTMCellv1(nn.Module):
 
         # Calculate attention weights using cosine similarity
         # Ensure hidden is adjusted to have the same dimensions as input_mapped for cosine similarity calculation.
-        gate_ic = F.cosine_similarity(input_mapped, hidden_initialized, dim=2, eps=1e-6).unsqueeze(-1).to(x.device)
+        gate_ic = F.cosine_similarity(input_mapped, hidden_initialized, dim=2, eps=1e-6).unsqueeze(-1)
         attention_weights = torch.sigmoid(gate_ic)
         
         # Modulate input with attention weights
