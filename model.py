@@ -10,10 +10,10 @@ from typing import Optional, Tuple
 
 
 class RAUCell(nn.Module):
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, input_size, hidden_size,num_layers=1,dropout=0):
         super(RAUCell, self).__init__()
         # Initialize GRU layer
-        self.gru = nn.GRU(input_size, hidden_size, batch_first=True)
+        self.gru = nn.GRU(input_size, hidden_size, batch_first=True,num_layers=num_layers,dropout=dropout)
         # Initialize parameters for attention
         # Weights for computing attention
         self.weight_c = nn.Parameter(torch.Tensor(hidden_size, input_size + hidden_size))
@@ -60,12 +60,12 @@ class RAUCell(nn.Module):
 
 ########################################################################
 class CGLSTMCellv1(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers=1):
+    def __init__(self, input_size, hidden_size, num_layers=1,dropout=0):
         super(CGLSTMCellv1, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         self.input_mapped = nn.Linear(input_size, hidden_size)
-        self.lstm = nn.LSTM(hidden_size, hidden_size, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True,num_layers=num_layers,dropout=dropout)
         
         for name, param in self.lstm.named_parameters():
             if 'weight_ih' in name:
@@ -170,7 +170,7 @@ class CGLSTMCellv1(nn.Module):
 
 ############################################################################
 class CGLSTMCellv0(nn.Module):
-    def __init__(self,n_latents, hidden_size, num_layers=1):
+    def __init__(self,n_latents, hidden_size, num_layers=1,dropout=0):
         super(CGLSTMCellv0, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
@@ -178,7 +178,7 @@ class CGLSTMCellv0(nn.Module):
         self.input_mapped = nn.Linear(n_latents, hidden_size)
 
         # Basic LSTM layer
-        self.lstm = nn.LSTM(hidden_size, hidden_size, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True,num_layers=num_layers,dropout=dropout)
         
         # Apply Xavier/Glorot initialization to LSTM weights and zero initialization to biases
         for name, param in self.lstm.named_parameters():
@@ -448,23 +448,24 @@ class SA_RecurrentModel(nn.Module):
         super(SA_RecurrentModel, self).__init__()
         self.model_type = model_type
         self.hidden_size = hidden_size
+        self.dropout = dropout
 
         # Embedding layer
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
 
         if model_type == 'RAUCell':
-            self.recurrent_layer = RAUCell(embedding_dim, hidden_size)
+            self.recurrent_layer = RAUCell(embedding_dim, hidden_size, num_layers=2,dropout=dropout)
         elif model_type == 'LSTM':
-            self.recurrent_layer = nn.LSTM(embedding_dim, hidden_size)
+            self.recurrent_layer = nn.LSTM(embedding_dim, hidden_size,batch_first=True, num_layers=2,dropout=dropout)
         elif model_type == 'CGLSTMv0':
-            self.recurrent_layer = CGLSTMCellv0(embedding_dim, hidden_size)
+            self.recurrent_layer = CGLSTMCellv0(embedding_dim, hidden_size, num_layers=2,dropout= self.dropout)
         elif model_type == 'CGLSTMv1':
-            self.recurrent_layer = CGLSTMCellv1(embedding_dim, hidden_size)
+            self.recurrent_layer = CGLSTMCellv1(embedding_dim, hidden_size, num_layers=2,dropout= self.dropout)
         elif model_type == 'GRU':
-            self.recurrent_layer = nn.GRU(embedding_dim, hidden_size)
+            self.recurrent_layer = nn.GRU(embedding_dim, hidden_size,batch_first=True, num_layers=2,dropout=dropout)
         elif model_type == 'Transformer':
             # Assuming num_layers is fixed for simplicity, adjust as needed
-            self.recurrent_layer = TransformerModel(embedding_dim, hidden_size, num_layers=1, dropout=dropout)
+            self.recurrent_layer = TransformerModel(embedding_dim, hidden_size, num_layers=2, dropout=dropout)
         else:
             raise ValueError("Invalid model type. Choose among 'GRUCell', 'LSTMCell', 'RAUCell', 'CGLSTMCellv0', 'CGLSTMCellv1', or 'Transformer'.")
 
@@ -472,7 +473,7 @@ class SA_RecurrentModel(nn.Module):
         self.fc = nn.Linear(hidden_size, output_size)
 
         # Sigmoid activation function for binary classification
-        self.sigmoid = nn.Sigmoid()
+        #self.sigmoid = nn.Sigmoid()
     def forward(self, x):
         embeds = self.embedding(x)
 
@@ -489,7 +490,8 @@ class SA_RecurrentModel(nn.Module):
 
         last_output = output[:, -1]
 
-        out = self.sigmoid(self.fc(last_output))
+        #out = self.sigmoid(self.fc(last_output))
+        out = self.fc(last_output)
         return out
 #######################################  LanguageModel #########################
 
@@ -507,9 +509,9 @@ class LanguageModel(nn.Module):
         if model_type == 'RAUCell':
             self.rnn = RAUCell(embedding_dim, hidden_dim)
         elif model_type == 'LSTM':
-            self.rnn = nn.LSTM(embedding_dim, hidden_dim)
+            self.rnn = nn.LSTM(embedding_dim, hidden_dim,batch_first=True)
         elif model_type == 'GRU':
-            self.rnn = nn.GRU(embedding_dim, hidden_dim)
+            self.rnn = nn.GRU(embedding_dim, hidden_dim,batch_first=True)
         elif model_type == 'CGLSTMv0':
             self.rnn = CGLSTMCellv0(embedding_dim, hidden_dim)
         elif model_type == 'CGLSTMv1':
