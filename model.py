@@ -59,61 +59,74 @@ class RAUCell(nn.Module):
         return output,hidden
 
 ########################################################################
-class CGLSTMCellv1(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers=1,dropout=0):
-        super(CGLSTMCellv1, self).__init__()
-        self.num_layers = num_layers
-        self.hidden_size = hidden_size
-        self.input_mapped = nn.Linear(input_size, hidden_size)
-        self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True,num_layers=num_layers,dropout=dropout)
+# class CGLSTMCellv1(nn.Module):
+#     def __init__(self, input_size, hidden_size, num_layers=1,dropout=0):
+#         super(CGLSTMCellv1, self).__init__()
+#         self.num_layers = num_layers
+#         self.hidden_size = hidden_size
+#         self.input_mapped = nn.Linear(input_size, hidden_size)
+#         self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True,num_layers=num_layers,dropout=dropout)
         
-        for name, param in self.lstm.named_parameters():
-            if 'weight_ih' in name:
-                nn.init.xavier_uniform_(param.data)
-            elif 'weight_hh' in name:
-                nn.init.xavier_uniform_(param.data)
-            elif 'bias' in name:
-                param.data.fill_(0)
-        
-    def forward(self, x):
-        # Map input for cosine similarity calculation
-        input_mapped = self.input_mapped(x)
-        # Initialize hidden state and cell state
-        # hidden = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        hidden_initialized = torch.zeros(input_mapped.size(0), input_mapped.size(1), input_mapped.size(2)).to(x.device)
+#         for name, param in self.lstm.named_parameters():
+#             if 'weight_ih' in name:
+#                 nn.init.xavier_uniform_(param.data)
+#             elif 'weight_hh' in name:
+#                 nn.init.xavier_uniform_(param.data)
+#             elif 'bias' in name:
+#                 param.data.fill_(0)
+#     def create_prv_output(self, output):
+#         batch_size, seq_len, hidden_size = output.shape
+#         zero_tensor = torch.zeros(batch_size, 1, hidden_size, device=output.device)
+#         prv_output = torch.cat((zero_tensor, output[:, :-1, :]), dim=1)
+#         return prv_output
+
+#     def forward(self, x):
+#         # Map input for cosine similarity calculation
+#         input_mapped = self.input_mapped(x)
+#         # Initialize hidden state and cell state
+#         # hidden = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+#         hidden_initialized = torch.zeros(input_mapped.size(0), input_mapped.size(1), input_mapped.size(2)).to(x.device)
 
 
-        # # Calculate the average cell state for use in cosine similarity
-        # hidden_mapped_avg = hidden.mean(dim=0).unsqueeze(1).expand(-1, input_mapped.size(1), -1)
+#         # # Calculate the average cell state for use in cosine similarity
+#         # hidden_mapped_avg = hidden.mean(dim=0).unsqueeze(1).expand(-1, input_mapped.size(1), -1)
 
-        # # Adjust hidden to match input_mapped dimensions. Use only the last layer's hidden state.
-        # # Note: You might want to use a different strategy depending on your model's requirements.
-        # hidden_adjusted = hidden_mapped_avg  # Taking the last layer's hidden state
+#         # # Adjust hidden to match input_mapped dimensions. Use only the last layer's hidden state.
+#         # # Note: You might want to use a different strategy depending on your model's requirements.
+#         # hidden_adjusted = hidden_mapped_avg  # Taking the last layer's hidden state
 
-        # Calculate attention weights using cosine similarity
-        # Ensure hidden is adjusted to have the same dimensions as input_mapped for cosine similarity calculation.
-        gate_ic = F.cosine_similarity(input_mapped, hidden_initialized, dim=2, eps=1e-6).unsqueeze(-1)
-        attention_weights = torch.sigmoid(gate_ic)
+#         # Calculate attention weights using cosine similarity
+#         # Ensure hidden is adjusted to have the same dimensions as input_mapped for cosine similarity calculation.
+#         gate_ic = F.cosine_similarity(input_mapped, hidden_initialized, dim=2, eps=1e-6).unsqueeze(-1)
+#         attention_weights = torch.sigmoid(gate_ic)
         
-        # Modulate input with attention weights
-        input_modulated = input_mapped + (attention_weights * input_mapped)
+#         # Modulate input with attention weights
+#         input_modulated = input_mapped + (attention_weights * input_mapped)
         
-        # Proceed with LSTM
-        lstm_out, (hn, cn) = self.lstm(input_modulated)
+#         # Proceed with LSTM
+#         lstm_out, (hn, cn) = self.lstm(input_modulated)
         
-        # Calculate the average cell state for use in cosine similarity
-        cell_mapped_avg = cn.mean(dim=0).unsqueeze(1).expand(-1, input_mapped.size(1), -1)
+#         # Calculate the average cell state for use in cosine similarity
+#         cell_mapped_avg = cn.mean(dim=0).unsqueeze(1).expand(-1, input_mapped.size(1), -1)
+#             # Replace the previous method with the new method to get prv_output
+#         prv_output = self.create_prv_output(lstm_out)
+
+
+#         # Compute cosine similarity gates
+#         # gate_co = F.cosine_similarity(cell_mapped_avg, lstm_out, dim=2, eps=1e-6).unsqueeze(-1)
+#         gate_co = F.cosine_similarity(prv_output, lstm_out, dim=2, eps=1e-6).unsqueeze(-1)
         
-        # Compute cosine similarity gates
-        gate_co = F.cosine_similarity(cell_mapped_avg, lstm_out, dim=2, eps=1e-6).unsqueeze(-1)
+#         # Normalize and apply sigmoid
+#         gate_co = torch.sigmoid((gate_co + 1) / 2)
         
-        # Normalize and apply sigmoid
-        gate_co = torch.sigmoid((gate_co + 1) / 2)
+#         # Combine modulated hidden states as the final output
+#         output = lstm_out * gate_co
         
-        # Combine modulated hidden states as the final output
-        output = lstm_out * gate_co
+#         return output
+
+
+
         
-        return output
 # class CGLSTMCellv1(nn.Module):
 #     def __init__(self, input_size, hidden_size, num_layers=1):
 #         super(CGLSTMCellv1, self).__init__()
@@ -168,7 +181,7 @@ class CGLSTMCellv1(nn.Module):
         
 #         return output
 
-############################################################################
+# ############################################################################
 class CGLSTMCellv0(nn.Module):
     def __init__(self,n_latents, hidden_size, num_layers=1,dropout=0):
         super(CGLSTMCellv0, self).__init__()
@@ -178,8 +191,15 @@ class CGLSTMCellv0(nn.Module):
         self.input_mapped = nn.Linear(n_latents, hidden_size)
 
         # Basic LSTM layer
-        self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True,num_layers=num_layers,dropout=dropout)
+        self.lstm = nn.LSTM(n_latents, hidden_size, batch_first=True,num_layers=num_layers,dropout=dropout)
         
+        # Weights for computing attention
+        self.weight_c = nn.Parameter(torch.Tensor(hidden_size, n_latents + hidden_size))
+        self.bias_c = nn.Parameter(torch.Tensor(hidden_size))
+        
+        self.weight_hat_h = nn.Parameter(torch.Tensor(hidden_size, n_latents + hidden_size))
+        self.bias_hat_h = nn.Parameter(torch.Tensor(hidden_size))
+
         # Apply Xavier/Glorot initialization to LSTM weights and zero initialization to biases
         for name, param in self.lstm.named_parameters():
             if 'weight_ih' in name:
@@ -189,6 +209,23 @@ class CGLSTMCellv0(nn.Module):
             elif 'bias' in name:
                 param.data.fill_(0)
         
+        # Reset parameters
+        self.reset_parameters()
+    
+    def reset_parameters(self):
+        # Initialize weights and biases
+        nn.init.kaiming_uniform_(self.weight_c, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.weight_hat_h, a=math.sqrt(5))
+        nn.init.zeros_(self.bias_c)
+        nn.init.zeros_(self.bias_hat_h)
+
+    def create_prv_output(self, output):
+        batch_size, seq_len, hidden_size = output.shape
+        zero_tensor = torch.zeros(batch_size, 1, hidden_size, device=output.device)
+        prv_output = torch.cat((zero_tensor, output[:, :-1, :]), dim=1)
+        return prv_output
+
+
 
     def forward(self, x):
         # LSTM forward pass
@@ -199,26 +236,99 @@ class CGLSTMCellv0(nn.Module):
         # Map input for cosine similarity calculation
         input_mapped = self.input_mapped(x)
 
+        output, (hn, cn)  = self.lstm(x)
 
-        lstm_out, (hn, cn)  = self.lstm(input_mapped)
+            # Replace the previous method with the new method to get prv_output
+        prv_output = self.create_prv_output(output)
 
-        # Calculate the average cell state for use in cosine similarity
-        cell_mapped_avg = cn.mean(dim=0)
-        cell_mapped_avg = cell_mapped_avg.unsqueeze(1).expand(-1, input_mapped.size(1), -1)
-        
+
+        # Concatenate x and hidden for computing attention
+        combined = torch.cat((x, prv_output), dim=2)  # This concatenates along the feature dimension
+    
         # Compute cosine similarity gates for input-cell average and input-hidden comparisons
-        gate_ic = F.cosine_similarity(input_mapped, cell_mapped_avg, dim=1, eps=1e-6).unsqueeze(1)
-        gate_co = F.cosine_similarity(input_mapped, lstm_out, dim=1, eps=1e-6).unsqueeze(1)
+        gate_ic = F.cosine_similarity(input_mapped, output, dim=1, eps=1e-6).unsqueeze(1)
+        gate_co = F.cosine_similarity(prv_output, output, dim=1, eps=1e-6).unsqueeze(1)
 
        # Normalize and apply sigmoid to similarity scores to modulate the final output
         gate_ic = torch.sigmoid((gate_ic + 1) / 2)
         gate_co = torch.sigmoid((gate_co + 1) / 2)
 
-        # Combine modulated hidden states as the final output
-        output = lstm_out * gate_ic + lstm_out * gate_co
+        c_t = torch.tanh(F.linear(combined, self.weight_c, self.bias_c))
+        ic = gate_ic  * c_t
+
+        hat_h_t = torch.tanh(F.linear(combined, self.weight_hat_h, self.bias_hat_h))
+        co = gate_co * hat_h_t
+        
+
+        a_t = F.softmax(ic + co, dim=2)
+
+        return output + torch.sigmoid((output * a_t))
 
 
-        return output
+
+class CGLSTMCellv1(nn.Module):
+    def __init__(self, input_size, hidden_size,num_layers=1,dropout=0):
+        super(CGLSTMCellv1, self).__init__()
+        # Initialize GRU layer
+        self.gru = nn.GRU(input_size, hidden_size, batch_first=True,num_layers=num_layers,dropout=dropout)
+        # Initialize parameters for attention
+        # Linear mapping of input to hidden size for cosine similarity
+        self.input_mapped = nn.Linear(input_size, hidden_size)
+
+        # Weights for computing attention
+        self.weight_c = nn.Parameter(torch.Tensor(hidden_size, input_size + hidden_size))
+        self.bias_c = nn.Parameter(torch.Tensor(hidden_size))
+        
+        self.weight_hat_h = nn.Parameter(torch.Tensor(hidden_size, input_size + hidden_size))
+        self.bias_hat_h = nn.Parameter(torch.Tensor(hidden_size))
+
+        # Reset parameters
+        self.reset_parameters()
+    
+    def reset_parameters(self):
+        # Initialize weights and biases
+        nn.init.kaiming_uniform_(self.weight_c, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.weight_hat_h, a=math.sqrt(5))
+        nn.init.zeros_(self.bias_c)
+        nn.init.zeros_(self.bias_hat_h)
+
+    def create_prv_output(self, output):
+        batch_size, seq_len, hidden_size = output.shape
+        zero_tensor = torch.zeros(batch_size, 1, hidden_size, device=output.device)
+        prv_output = torch.cat((zero_tensor, output[:, :-1, :]), dim=1)
+        return prv_output
+
+    def forward(self, x):
+        # Map input for cosine similarity calculation
+        input_mapped = self.input_mapped(x)
+
+        output, hidden = self.gru(x)
+        # Replace the previous method with the new method to get prv_output
+        prv_output = self.create_prv_output(output)
+
+        # Concatenate x and hidden for computing attention
+        combined = torch.cat((x, prv_output), dim=2)  # This concatenates along the feature dimension
+    
+        # Compute cosine similarity gates for input-cell average and input-hidden comparisons
+        gate_ic = F.cosine_similarity(input_mapped, output, dim=1, eps=1e-6).unsqueeze(1)
+        gate_co = F.cosine_similarity(prv_output, output, dim=1, eps=1e-6).unsqueeze(1)
+
+       # Normalize and apply sigmoid to similarity scores to modulate the final output
+        gate_ic = torch.sigmoid((gate_ic + 1) / 2)
+        gate_co = torch.sigmoid((gate_co + 1) / 2)
+
+        c_t = torch.tanh(F.linear(combined, self.weight_c, self.bias_c))
+        ic = gate_ic  * c_t
+
+        hat_h_t = torch.tanh(F.linear(combined, self.weight_hat_h, self.bias_hat_h))
+        co = gate_co * hat_h_t
+        
+
+        a_t = F.softmax(ic + co, dim=2)
+
+        return output + torch.sigmoid((output * a_t))
+
+
 ######################################################################Transformer #############################################
 
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
@@ -272,7 +382,7 @@ import math
 #         return x
 
 class TransformerModel(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, dropout=0.0,nhead=1):
+    def __init__(self, input_size, hidden_size, num_layers, dropout=0.0,nhead=8):
 
         super(TransformerModel, self).__init__()
         
@@ -285,10 +395,16 @@ class TransformerModel(nn.Module):
         self.input_linear = nn.Linear(input_size, hidden_size)
 
         # Define the Transformer layers
+        # transformer_layer = nn.TransformerEncoderLayer(
+        #     d_model=hidden_size, 
+        #     nhead=nhead
+        # )
         transformer_layer = nn.TransformerEncoderLayer(
             d_model=hidden_size, 
-            nhead=nhead
+            nhead=nhead,
+            # batch_first=True  # Add this line if your PyTorch version supports it
         )
+
         self.transformer_encoder = nn.TransformerEncoder(transformer_layer, num_layers)
 
         # Output layer to map the hidden representation to the desired output size
@@ -473,7 +589,7 @@ class SA_RecurrentModel(nn.Module):
         self.fc = nn.Linear(hidden_size, output_size)
 
         # Sigmoid activation function for binary classification
-        #self.sigmoid = nn.Sigmoid()
+        self.sigmoid = nn.Sigmoid()
     def forward(self, x):
         embeds = self.embedding(x)
 
@@ -490,8 +606,8 @@ class SA_RecurrentModel(nn.Module):
 
         last_output = output[:, -1]
 
-        #out = self.sigmoid(self.fc(last_output))
-        out = self.fc(last_output)
+        out = self.sigmoid(self.fc(last_output))
+        # out = self.fc(last_output)
         return out
 #######################################  LanguageModel #########################
 

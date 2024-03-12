@@ -274,7 +274,7 @@ def main():
     learning_rates = [1e-3,1e-3, 1e-3, 1e-3, 1e-3, 1e-3]  # Example learning rates
 
     # Set seeds for reproducibility
-    seeds = [42, 64]
+    seeds = [42, 64,689]
 
     # Store all model results
     all_model_results = {}

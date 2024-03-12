@@ -235,7 +235,7 @@ def main():
     BATCH_SIZE = 20
     # learning_rates = {'GRU': 1e-3,}
     learning_rates = {'GRU': 1e-3,'CGLSTMv1': 1e-3,'CGLSTMv0': 1e-3,'LSTM': 1e-3, 'Transformer': 1e-3,'RAUCell': 1e-3}
-    seeds = [42,40]
+    seeds = [42,40,897]
 
     vocab, train_loader, valid_loader, test_loader = load_data(BATCH_SIZE)
     all_model_results = {}
