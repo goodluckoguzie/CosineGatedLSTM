@@ -27,27 +27,62 @@ def main():
                 model_metrics[model_type]['training_time'].append(metrics['training_time'])
                 model_metrics[model_type]['testing_time'].append(metrics['testing_time'])
 
+        # # T-tests
+        # t_test_results = {}
+        # for model_type in learning_rates:
+        #     for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
+        #         _, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGGRU'][metric], nan_policy='omit')
+        #         t_test_results[(model_type, metric)] = p_value
+
         # T-tests
         t_test_results = {}
         for model_type in learning_rates:
+            if model_type == 'CGGRU':  # Skip the baseline model itself
+                continue
             for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
-                _, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGLSTMv0'][metric], nan_policy='omit')
-                t_test_results[(model_type, metric)] = p_value
+                t_stat, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGGRU'][metric], equal_var=False, nan_policy='omit')
+                t_test_results[(model_type, metric)] = (t_stat, p_value)
 
-        # Compile the final table data with mean metrics and p-values from t-tests
+        # # Compile the final table data with mean metrics and p-values from t-tests
+        # final_table_data = []
+        # for model_type in learning_rates:
+        #     final_table_data.append({
+        #         'Model': model_type,
+        #         'Mean Train Accuracy (%)': np.mean(model_metrics[model_type]['train_accuracy']),
+        #         'Mean Val Accuracy (%)': np.mean(model_metrics[model_type]['val_accuracy']),
+        #         'Mean Test Accuracy (%)': np.mean(model_metrics[model_type]['test_accuracy']),
+        #         'Mean Training Time (s)': np.mean(model_metrics[model_type]['training_time']),
+        #         'Mean Testing Time (s)': np.mean(model_metrics[model_type]['testing_time']),
+        #         'T-test p-value (Train Acc)': t_test_results[(model_type, 'train_accuracy')],
+        #         'T-test p-value (Val Acc)': t_test_results[(model_type, 'val_accuracy')],
+        #         'T-test p-value (Test Acc)': t_test_results[(model_type, 'test_accuracy')]
+        #     })
+                
+        # Compile the final table data with mean metrics and T-tests results
         final_table_data = []
         for model_type in learning_rates:
-            final_table_data.append({
+            row = {
                 'Model': model_type,
                 'Mean Train Accuracy (%)': np.mean(model_metrics[model_type]['train_accuracy']),
                 'Mean Val Accuracy (%)': np.mean(model_metrics[model_type]['val_accuracy']),
                 'Mean Test Accuracy (%)': np.mean(model_metrics[model_type]['test_accuracy']),
                 'Mean Training Time (s)': np.mean(model_metrics[model_type]['training_time']),
                 'Mean Testing Time (s)': np.mean(model_metrics[model_type]['testing_time']),
-                'T-test p-value (Train Acc)': t_test_results[(model_type, 'train_accuracy')],
-                'T-test p-value (Val Acc)': t_test_results[(model_type, 'val_accuracy')],
-                'T-test p-value (Test Acc)': t_test_results[(model_type, 'test_accuracy')]
-            })
+            }
+
+            # Add T-test statistic and p-value to the row, for models compared against CGGRU
+            if model_type != 'CGGRU':
+                for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
+                    t_stat, p_value = t_test_results.get((model_type, metric), (None, None))
+                    row[f'T-test Statistic (vs. CGGRU) {metric}'] = t_stat
+                    row[f'T-test p-value (vs. CGGRU) {metric}'] = p_value
+            else:
+                for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
+                    row[f'T-test Statistic (vs. CGGRU) {metric}'] = None
+                    row[f'T-test p-value (vs. CGGRU) {metric}'] = None
+
+            final_table_data.append(row)
+
         # Save the final comparison table to a CSV file and print it
         df = pd.DataFrame(final_table_data)
         df.to_csv('results/model_comparison_final.csv', index=False)
@@ -286,8 +321,8 @@ def main():
     if not os.path.exists('results'):
         os.makedirs('results')
 
-    learning_rates = {'CGLSTMv0': CGLSTMCellv0_learning_rate, 'CGLSTMv1': CGLSTMCellv1_learning_rate,'Transformer': Transformer_rate,'LSTM': LSTM_learning_rate,  'RAUCell': RAU_learning_rate, 'GRU': GRU_learning_rate}
-    seeds = [42, 456,500]
+    learning_rates = {'CGGRU': CGLSTMCellv0_learning_rate,'Transformer': Transformer_rate,'LSTM': LSTM_learning_rate,  'RAUCell': RAU_learning_rate, 'GRU': GRU_learning_rate}
+    seeds = [500,60]
     all_model_results = {}
 
     for model_type, lr in learning_rates.items():

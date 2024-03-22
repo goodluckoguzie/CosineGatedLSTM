@@ -18,7 +18,7 @@ import time
 sys.path.append('../')
 from model import LanguageModel  # Make sure this import matches your model's actual location
 
-def build_vocab(max_size=10_000):
+def build_vocab(max_size=10):
     tokenizer = get_tokenizer("basic_english")
     train_iter = datasets.PennTreebank(split='train')
     token_counter = Counter()
@@ -68,7 +68,7 @@ def train_and_evaluate(model_type, lr, seed, vocab, train_loader, valid_loader, 
     HIDDEN_DIM = 200
     NUM_LAYERS = 1
     DROPOUT = 0.2
-    N_EPOCHS = 30
+    N_EPOCHS = 2#30
 
     model = LanguageModel(len(vocab), EMBEDDING_DIM, HIDDEN_DIM, NUM_LAYERS, DROPOUT, model_type).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -169,61 +169,102 @@ def train_and_evaluate(model_type, lr, seed, vocab, train_loader, valid_loader, 
     }
 
 
+# def prepare_and_display_final_results(all_model_results):
+#     final_summary = {
+#         'Model Type': [], 'Mean Train Perplexity': [], 'Std Train Perplexity': [],
+#         'Mean Valid Perplexity': [], 'Std Valid Perplexity': [], 'Mean Test Perplexity': [],
+#         'Std Test Perplexity': [], 'Mean Train Time': [], 'Mean Test Time': [], 'Mean Num Parameters': [],
+#         'P-Value Train PPL vs. CGGRU': [], 'P-Value Valid PPL vs. CGGRU': [], 'P-Value Test PPL vs. CGGRU': []
+#     }
+    
+#     benchmark_model = 'CGGRU'
+#     benchmark_results = {'train_ppl': [], 'valid_ppl': [], 'test_ppl': []}
+    
+#     if benchmark_model in all_model_results:
+#         for seed, results in all_model_results[benchmark_model].items():
+#             benchmark_results['train_ppl'].append(results['train_perplexity'])
+#             benchmark_results['valid_ppl'].append(results['valid_perplexity'])
+#             benchmark_results['test_ppl'].append(results['test_perplexity'])
+
+#     for model_type, seeds_results in all_model_results.items():
+#         train_ppls, valid_ppls, test_ppls, train_times, test_times, num_params = [], [], [], [], [], []
+
+#         for seed, results in seeds_results.items():
+#             train_ppls.append(results['train_perplexity'])
+#             valid_ppls.append(results['valid_perplexity'])
+#             test_ppls.append(results['test_perplexity'])
+#             train_times.append(results['mean_train_time'])
+#             test_times.append(results['mean_test_time'])
+#             num_params.append(results['num_parameters'])
+
+#         # Calculating mean and std
+#         final_summary['Model Type'].append(model_type)
+#         final_summary['Mean Train Perplexity'].append(np.mean(train_ppls))
+#         final_summary['Std Train Perplexity'].append(np.std(train_ppls))
+#         final_summary['Mean Valid Perplexity'].append(np.mean(valid_ppls))
+#         final_summary['Std Valid Perplexity'].append(np.std(valid_ppls))
+#         final_summary['Mean Test Perplexity'].append(np.mean(test_ppls))
+#         final_summary['Std Test Perplexity'].append(np.std(test_ppls))
+#         final_summary['Mean Train Time'].append(np.mean(train_times))
+#         final_summary['Mean Test Time'].append(np.mean(test_times))
+#         final_summary['Mean Num Parameters'].append(np.mean(num_params))
+        
+#         # Performing t-tests if benchmark model results are available
+#         if benchmark_model in all_model_results and model_type != benchmark_model:
+#             for metric in ['train_ppl', 'valid_ppl', 'test_ppl']:
+#                 model_metric_values = [train_ppls, valid_ppls, test_ppls][['train_ppl', 'valid_ppl', 'test_ppl'].index(metric)]
+#                 t_stat, p_value = ttest_ind(benchmark_results[metric], model_metric_values, equal_var=False)
+#                 # Correctly format the metric name to match the keys in final_summary
+#                 metric_name = metric.replace('_', ' ').capitalize().replace("ppl", "PPL")
+#                 key_name = f'P-Value {metric_name} vs. {benchmark_model}'
+#                 final_summary[key_name].append(p_value)
+#         else:
+#             for metric in ['train_ppl', 'valid_ppl', 'test_ppl']:
+#                 # Correctly format the metric name to match the keys in final_summary
+#                 metric_name = metric.replace('_', ' ').capitalize().replace("ppl", "PPL")
+#                 key_name = f'P-Value {metric_name} vs. {benchmark_model}'
+#                 final_summary[key_name].append(np.nan)
+
+#     df_summary = pd.DataFrame(final_summary)
+#     summary_path = 'results/final_summary.csv'
+#     df_summary.to_csv(summary_path, index=False)
+#     print(df_summary)
+
 def prepare_and_display_final_results(all_model_results):
     final_summary = {
-        'Model Type': [], 'Mean Train Perplexity': [], 'Std Train Perplexity': [],
-        'Mean Valid Perplexity': [], 'Std Valid Perplexity': [], 'Mean Test Perplexity': [],
-        'Std Test Perplexity': [], 'Mean Train Time': [], 'Mean Test Time': [], 'Mean Num Parameters': [],
-        'P-Value Train PPL vs. CGLSTMv0': [], 'P-Value Valid PPL vs. CGLSTMv0': [], 'P-Value Test PPL vs. CGLSTMv0': []
+        'Model Type': [], 'Mean Test Perplexity': [], 'Std Test Perplexity': [], 
+        'Mean Train Time': [], 'Mean Test Time': [], 'Mean Num Parameters': [],
+        'Test PPL T-test Statistic (vs. CGGRU)': [], 'Test PPL T-test p-value (vs. CGGRU)': []
     }
     
-    benchmark_model = 'CGLSTMv0'
-    benchmark_results = {'train_ppl': [], 'valid_ppl': [], 'test_ppl': []}
-    
-    if benchmark_model in all_model_results:
-        for seed, results in all_model_results[benchmark_model].items():
-            benchmark_results['train_ppl'].append(results['train_perplexity'])
-            benchmark_results['valid_ppl'].append(results['valid_perplexity'])
-            benchmark_results['test_ppl'].append(results['test_perplexity'])
+    benchmark_model = 'CGGRU'
+    benchmark_test_ppl = np.array([r['test_perplexity'] for r in all_model_results[benchmark_model].values()])
 
     for model_type, seeds_results in all_model_results.items():
-        train_ppls, valid_ppls, test_ppls, train_times, test_times, num_params = [], [], [], [], [], []
+        test_ppls, train_times, test_times, num_params = [], [], [], []
 
         for seed, results in seeds_results.items():
-            train_ppls.append(results['train_perplexity'])
-            valid_ppls.append(results['valid_perplexity'])
             test_ppls.append(results['test_perplexity'])
             train_times.append(results['mean_train_time'])
             test_times.append(results['mean_test_time'])
             num_params.append(results['num_parameters'])
 
-        # Calculating mean and std
+        # Calculate mean and std for test perplexity and other metrics
         final_summary['Model Type'].append(model_type)
-        final_summary['Mean Train Perplexity'].append(np.mean(train_ppls))
-        final_summary['Std Train Perplexity'].append(np.std(train_ppls))
-        final_summary['Mean Valid Perplexity'].append(np.mean(valid_ppls))
-        final_summary['Std Valid Perplexity'].append(np.std(valid_ppls))
         final_summary['Mean Test Perplexity'].append(np.mean(test_ppls))
         final_summary['Std Test Perplexity'].append(np.std(test_ppls))
         final_summary['Mean Train Time'].append(np.mean(train_times))
         final_summary['Mean Test Time'].append(np.mean(test_times))
         final_summary['Mean Num Parameters'].append(np.mean(num_params))
         
-        # Performing t-tests if benchmark model results are available
-        if benchmark_model in all_model_results and model_type != benchmark_model:
-            for metric in ['train_ppl', 'valid_ppl', 'test_ppl']:
-                model_metric_values = [train_ppls, valid_ppls, test_ppls][['train_ppl', 'valid_ppl', 'test_ppl'].index(metric)]
-                t_stat, p_value = ttest_ind(benchmark_results[metric], model_metric_values, equal_var=False)
-                # Correctly format the metric name to match the keys in final_summary
-                metric_name = metric.replace('_', ' ').capitalize().replace("ppl", "PPL")
-                key_name = f'P-Value {metric_name} vs. {benchmark_model}'
-                final_summary[key_name].append(p_value)
+        # Performing t-tests for test perplexity if benchmark model results are available and current model is not the benchmark
+        if model_type != benchmark_model:
+            t_stat, p_value = ttest_ind(test_ppls, benchmark_test_ppl, equal_var=False)
+            final_summary['Test PPL T-test Statistic (vs. CGGRU)'].append(t_stat)
+            final_summary['Test PPL T-test p-value (vs. CGGRU)'].append(p_value)
         else:
-            for metric in ['train_ppl', 'valid_ppl', 'test_ppl']:
-                # Correctly format the metric name to match the keys in final_summary
-                metric_name = metric.replace('_', ' ').capitalize().replace("ppl", "PPL")
-                key_name = f'P-Value {metric_name} vs. {benchmark_model}'
-                final_summary[key_name].append(np.nan)
+            final_summary['Test PPL T-test Statistic (vs. CGGRU)'].append(None)
+            final_summary['Test PPL T-test p-value (vs. CGGRU)'].append(None)
 
     df_summary = pd.DataFrame(final_summary)
     summary_path = 'results/final_summary.csv'
@@ -234,8 +275,8 @@ def prepare_and_display_final_results(all_model_results):
 def main():
     BATCH_SIZE = 20
     # learning_rates = {'GRU': 1e-3,}
-    learning_rates = {'GRU': 1e-3,'CGLSTMv1': 1e-3,'CGLSTMv0': 1e-3,'LSTM': 1e-3, 'Transformer': 1e-3,'RAUCell': 1e-3}
-    seeds = [42,40,897]
+    learning_rates = {'GRU': 1e-3,'CGGRU': 1e-3,'LSTM': 1e-3, 'Transformer': 1e-3,'RAUCell': 1e-3}
+    seeds = [897,76]
 
     vocab, train_loader, valid_loader, test_loader = load_data(BATCH_SIZE)
     all_model_results = {}

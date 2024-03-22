@@ -264,17 +264,17 @@ def main():
 
     # Model parameters
     output_size = 1
-    embedding_dim =  64
+    embedding_dim =  128
     hidden_dim = 128
     n_layers = 1
-    dropout = 0.2
+    dropout = 0.0
 
     # Define model types and their respective learning rates
-    model_types = ['GRU', 'CGLSTMv0', 'CGLSTMv1','LSTM', 'Transformer', 'RAUCell']
-    learning_rates = [1e-3,1e-3, 1e-3, 1e-3, 1e-3, 1e-3]  # Example learning rates
+    model_types = ['CGGRU','LSTM', 'RAUCell','GRU','Transformer']
+    learning_rates = [1e-3,1e-3,1e-3, 1e-3,1e-3]  # Example learning rates
 
     # Set seeds for reproducibility
-    seeds = [42, 64,689]
+    seeds = [94,87] #,765]
 
     # Store all model results
     all_model_results = {}
@@ -315,44 +315,86 @@ def main():
         }
 
 
-    # Perform independent two-sample t-tests between models for statistical significance on validation, training, and test accuracy
-    t_test_results = {'val_accuracy': {}, 'train_accuracy': {}, 'test_accuracy': {}}
-    baseline_val_accuracies = [r['val_accuracies'] for r in all_model_results['CGLSTMv0'].values()]
-    baseline_train_accuracies = [r['train_accuracies'] for r in all_model_results['CGLSTMv0'].values()]
-    baseline_test_accuracies = [r['test_accuracies'] for r in all_model_results['CGLSTMv0'].values()]
+    # # Perform independent two-sample t-tests between models for statistical significance on validation, training, and test accuracy
+    # t_test_results = {'val_accuracy': {}, 'train_accuracy': {}, 'test_accuracy': {}}
+    # baseline_val_accuracies = [r['val_accuracies'] for r in all_model_results['CGGRU'].values()]
+    # baseline_train_accuracies = [r['train_accuracies'] for r in all_model_results['CGGRU'].values()]
+    # baseline_test_accuracies = [r['test_accuracies'] for r in all_model_results['CGGRU'].values()]
+    # for model_type in model_types:
+    #     if model_type == 'CGGRU':  # Skip baseline comparison with itself
+    #         continue
+    #     val_accuracies = [r['val_accuracies'] for r in all_model_results[model_type].values()]
+    #     train_accuracies = [r['train_accuracies'] for r in all_model_results[model_type].values()]
+    #     test_accuracies = [r['test_accuracies'] for r in all_model_results[model_type].values()]
+
+    #     # Perform t-tests for validation accuracy
+    #     _, p_value_val = ttest_ind(val_accuracies, baseline_val_accuracies)
+    #     t_test_results['val_accuracy'][model_type] = p_value_val
+
+    #     # Perform t-tests for training accuracy
+    #     _, p_value_train = ttest_ind(train_accuracies, baseline_train_accuracies)
+    #     t_test_results['train_accuracy'][model_type] = p_value_train
+
+    #     # Perform t-tests for test accuracy
+    #     _, p_value_test = ttest_ind(test_accuracies, baseline_test_accuracies)
+    #     t_test_results['test_accuracy'][model_type] = p_value_test
+
+
+    # Perform independent two-sample t-tests between models for statistical significance on test accuracy
+    t_test_results = {}
+    baseline_test_accuracies = np.array([r['test_accuracies'] for r in all_model_results['CGGRU'].values()])
     for model_type in model_types:
-        if model_type == 'CGLSTMv0':  # Skip baseline comparison with itself
+        if model_type == 'CGGRU':  # Skip baseline comparison with itself
             continue
-        val_accuracies = [r['val_accuracies'] for r in all_model_results[model_type].values()]
-        train_accuracies = [r['train_accuracies'] for r in all_model_results[model_type].values()]
-        test_accuracies = [r['test_accuracies'] for r in all_model_results[model_type].values()]
+        test_accuracies = np.array([r['test_accuracies'] for r in all_model_results[model_type].values()])
+        t_stat, p_value_test = ttest_ind(test_accuracies, baseline_test_accuracies, equal_var=False)
+        t_test_results[model_type] = (t_stat, p_value_test)
 
-        # Perform t-tests for validation accuracy
-        _, p_value_val = ttest_ind(val_accuracies, baseline_val_accuracies)
-        t_test_results['val_accuracy'][model_type] = p_value_val
 
-        # Perform t-tests for training accuracy
-        _, p_value_train = ttest_ind(train_accuracies, baseline_train_accuracies)
-        t_test_results['train_accuracy'][model_type] = p_value_train
 
-        # Perform t-tests for test accuracy
-        _, p_value_test = ttest_ind(test_accuracies, baseline_test_accuracies)
-        t_test_results['test_accuracy'][model_type] = p_value_test
+    # # Prepare final results table
+    # final_table_data = []
+    # for model_type, metrics in aggregated_results.items():
+    #     final_table_data.append({
+    #         'Model': model_type,
+    #         'Mean Train Accuracy (%)': metrics['mean_train_accuracy'],
+    #         'Mean Val Accuracy (%)': metrics['mean_val_accuracy'],
+    #         'Mean Test Accuracy (%)': metrics['mean_test_accuracy'],
+    #         'Mean Training Time (s)': metrics['mean_training_time'],
+    #         'Mean Testing Time (s)': metrics['mean_testing_time'],
+    #         'T-test p-value (vs. CGLSTMv1) (Validation Accuracy)': t_test_results['val_accuracy'].get(model_type, 'N/A'),
+    #         'T-test p-value (vs. CGLSTMv1) (Training Accuracy)': t_test_results['train_accuracy'].get(model_type, 'N/A'),
+    #         'T-test p-value (vs. CGLSTMv1) (Test Accuracy)': t_test_results['test_accuracy'].get(model_type, 'N/A')
+    #     })
 
-    # Prepare final results table
+    # # Convert to DataFrame and save to CSV
+    # final_results_df = pd.DataFrame(final_table_data)
+    # final_results_csv_path = os.path.join(results_folder, 'final_model_comparison_results.csv')
+    # final_results_df.to_csv(final_results_csv_path, index=False)
+
+    # print(f"Final results table saved to {final_results_csv_path}")
+
+    # Prepare final results table with T-test statistic and p-value for test accuracies
     final_table_data = []
     for model_type, metrics in aggregated_results.items():
-        final_table_data.append({
+        row = {
             'Model': model_type,
             'Mean Train Accuracy (%)': metrics['mean_train_accuracy'],
             'Mean Val Accuracy (%)': metrics['mean_val_accuracy'],
             'Mean Test Accuracy (%)': metrics['mean_test_accuracy'],
             'Mean Training Time (s)': metrics['mean_training_time'],
             'Mean Testing Time (s)': metrics['mean_testing_time'],
-            'T-test p-value (vs. CGLSTMv1) (Validation Accuracy)': t_test_results['val_accuracy'].get(model_type, 'N/A'),
-            'T-test p-value (vs. CGLSTMv1) (Training Accuracy)': t_test_results['train_accuracy'].get(model_type, 'N/A'),
-            'T-test p-value (vs. CGLSTMv1) (Test Accuracy)': t_test_results['test_accuracy'].get(model_type, 'N/A')
-        })
+        }
+        # Include T-test results only for test accuracy
+        if model_type != 'CGGRU':
+            t_stat, p_value = t_test_results.get(model_type, (None, None))
+            row['T-test Statistic (vs. CGGRU) (Test Accuracy)'] = t_stat
+            row['T-test p-value (vs. CGGRU) (Test Accuracy)'] = p_value
+        else:
+            row['T-test Statistic (vs. CGGRU) (Test Accuracy)'] = None
+            row['T-test p-value (vs. CGGRU) (Test Accuracy)'] = None
+
+        final_table_data.append(row)
 
     # Convert to DataFrame and save to CSV
     final_results_df = pd.DataFrame(final_table_data)
