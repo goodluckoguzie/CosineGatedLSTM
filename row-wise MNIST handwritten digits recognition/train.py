@@ -37,10 +37,10 @@ def main():
         # T-tests
         t_test_results = {}
         for model_type in learning_rates:
-            if model_type == 'CGGRU':  # Skip the baseline model itself
+            if model_type == 'CGLSTM':  # Skip the baseline model itself
                 continue
             for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
-                t_stat, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGGRU'][metric], equal_var=False, nan_policy='omit')
+                t_stat, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGLSTM'][metric], equal_var=False, nan_policy='omit')
                 t_test_results[(model_type, metric)] = (t_stat, p_value)
 
         # # Compile the final table data with mean metrics and p-values from t-tests
@@ -71,15 +71,15 @@ def main():
             }
 
             # Add T-test statistic and p-value to the row, for models compared against CGGRU
-            if model_type != 'CGGRU':
+            if model_type != 'CGLSTM':
                 for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
                     t_stat, p_value = t_test_results.get((model_type, metric), (None, None))
-                    row[f'T-test Statistic (vs. CGGRU) {metric}'] = t_stat
-                    row[f'T-test p-value (vs. CGGRU) {metric}'] = p_value
+                    row[f'T-test Statistic (vs. CGLSTM) {metric}'] = t_stat
+                    row[f'T-test p-value (vs. CGLSTM) {metric}'] = p_value
             else:
                 for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
-                    row[f'T-test Statistic (vs. CGGRU) {metric}'] = None
-                    row[f'T-test p-value (vs. CGGRU) {metric}'] = None
+                    row[f'T-test Statistic (vs. CGLSTM) {metric}'] = None
+                    row[f'T-test p-value (vs. CGLSTM) {metric}'] = None
 
             final_table_data.append(row)
 
@@ -321,8 +321,8 @@ def main():
     if not os.path.exists('results'):
         os.makedirs('results')
 
-    learning_rates = {'CGGRU': CGLSTMCellv0_learning_rate,'Transformer': Transformer_rate,'LSTM': LSTM_learning_rate,  'RAUCell': RAU_learning_rate, 'GRU': GRU_learning_rate}
-    seeds = [500,60]
+    learning_rates = {'CGLSTM': CGLSTMCellv0_learning_rate,'Transformer': Transformer_rate,'LSTM': LSTM_learning_rate,  'RAUCell': RAU_learning_rate, 'GRU': GRU_learning_rate}
+    seeds = [500,60,785]
     all_model_results = {}
 
     for model_type, lr in learning_rates.items():

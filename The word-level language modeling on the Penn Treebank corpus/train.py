@@ -18,7 +18,7 @@ import time
 sys.path.append('../')
 from model import LanguageModel  # Make sure this import matches your model's actual location
 
-def build_vocab(max_size=10):
+def build_vocab(max_size=10_000):
     tokenizer = get_tokenizer("basic_english")
     train_iter = datasets.PennTreebank(split='train')
     token_counter = Counter()
@@ -68,7 +68,7 @@ def train_and_evaluate(model_type, lr, seed, vocab, train_loader, valid_loader, 
     HIDDEN_DIM = 200
     NUM_LAYERS = 1
     DROPOUT = 0.2
-    N_EPOCHS = 2#30
+    N_EPOCHS = 35
 
     model = LanguageModel(len(vocab), EMBEDDING_DIM, HIDDEN_DIM, NUM_LAYERS, DROPOUT, model_type).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -234,10 +234,10 @@ def prepare_and_display_final_results(all_model_results):
     final_summary = {
         'Model Type': [], 'Mean Test Perplexity': [], 'Std Test Perplexity': [], 
         'Mean Train Time': [], 'Mean Test Time': [], 'Mean Num Parameters': [],
-        'Test PPL T-test Statistic (vs. CGGRU)': [], 'Test PPL T-test p-value (vs. CGGRU)': []
+        'Test PPL T-test Statistic (vs. CGLSTM)': [], 'Test PPL T-test p-value (vs. CGLSTM)': []
     }
     
-    benchmark_model = 'CGGRU'
+    benchmark_model = 'CGLSTM'
     benchmark_test_ppl = np.array([r['test_perplexity'] for r in all_model_results[benchmark_model].values()])
 
     for model_type, seeds_results in all_model_results.items():
@@ -260,11 +260,11 @@ def prepare_and_display_final_results(all_model_results):
         # Performing t-tests for test perplexity if benchmark model results are available and current model is not the benchmark
         if model_type != benchmark_model:
             t_stat, p_value = ttest_ind(test_ppls, benchmark_test_ppl, equal_var=False)
-            final_summary['Test PPL T-test Statistic (vs. CGGRU)'].append(t_stat)
-            final_summary['Test PPL T-test p-value (vs. CGGRU)'].append(p_value)
+            final_summary['Test PPL T-test Statistic (vs. CGLSTM)'].append(t_stat)
+            final_summary['Test PPL T-test p-value (vs. CGLSTM)'].append(p_value)
         else:
-            final_summary['Test PPL T-test Statistic (vs. CGGRU)'].append(None)
-            final_summary['Test PPL T-test p-value (vs. CGGRU)'].append(None)
+            final_summary['Test PPL T-test Statistic (vs. CGLSTM)'].append(None)
+            final_summary['Test PPL T-test p-value (vs. CGLSTM)'].append(None)
 
     df_summary = pd.DataFrame(final_summary)
     summary_path = 'results/final_summary.csv'
@@ -275,8 +275,8 @@ def prepare_and_display_final_results(all_model_results):
 def main():
     BATCH_SIZE = 20
     # learning_rates = {'GRU': 1e-3,}
-    learning_rates = {'GRU': 1e-3,'CGGRU': 1e-3,'LSTM': 1e-3, 'Transformer': 1e-3,'RAUCell': 1e-3}
-    seeds = [897,76]
+    learning_rates = {'Transformer': 1e-3,'CGLSTM':1e-3,'RAUCell': 1e-3,'LSTM': 1e-3, 'GRU': 1e-3}
+    seeds = [678,94,200]
 
     vocab, train_loader, valid_loader, test_loader = load_data(BATCH_SIZE)
     all_model_results = {}

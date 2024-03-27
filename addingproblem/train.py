@@ -38,6 +38,40 @@ def calculate_mae(predictions, targets):
     """Calculates the Mean Absolute Error (MAE) between predictions and targets."""
     return torch.mean(torch.abs(predictions - targets)).item()
 
+# def train_model(model_type, T, num_steps, train_set_size, val_set_size, test_set_size, batch_size, learning_rate, seed, hidden_size, device):
+#     torch.manual_seed(seed)
+#     np.random.seed(seed)
+#     model = AP_RecurrentModel(2, hidden_size, 1, model_type=model_type).to(device)
+#     criterion = nn.MSELoss()
+#     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    
+#     training_time = 0
+#     testing_time = 0
+#     val_maes = []
+#     test_maes = []
+    
+#     for step in range(1, num_steps + 1):
+#         start_time = time.time()
+#         model.train()
+#         train_loss_sum = 0
+        
+#         for _ in range(train_set_size // batch_size):
+#             combined_input, labels = get_batch(T, batch_size)
+#             combined_input, labels = combined_input.to(device), labels.to(device)
+#             optimizer.zero_grad()
+#             output = model(combined_input)
+#             loss = criterion(output, labels)
+#             loss.backward()
+#             optimizer.step()
+#             train_loss_sum += loss.item()
+
+def adjust_learning_rate(optimizer, step, initial_lr, step_size=20000, lr_decay=0.5):
+    """Adjusts learning rate every `step_size` steps by multiplying it with `lr_decay`."""
+    if step % step_size == 0 and step > 0:
+        for param_group in optimizer.param_groups:
+            param_group['lr'] *= lr_decay
+            print(f"Reduced learning rate to {param_group['lr']} at step {step}")
+
 def train_model(model_type, T, num_steps, train_set_size, val_set_size, test_set_size, batch_size, learning_rate, seed, hidden_size, device):
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -49,13 +83,17 @@ def train_model(model_type, T, num_steps, train_set_size, val_set_size, test_set
     testing_time = 0
     val_maes = []
     test_maes = []
+    step = 0  # Initialize step counter
     
-    for step in range(1, num_steps + 1):
+    for epoch in range(1, num_steps + 1):
         start_time = time.time()
         model.train()
         train_loss_sum = 0
         
         for _ in range(train_set_size // batch_size):
+            step += 1  # Increment step counter
+            adjust_learning_rate(optimizer, step, learning_rate)  # Adjust learning rate if needed
+            
             combined_input, labels = get_batch(T, batch_size)
             combined_input, labels = combined_input.to(device), labels.to(device)
             optimizer.zero_grad()
@@ -63,8 +101,7 @@ def train_model(model_type, T, num_steps, train_set_size, val_set_size, test_set
             loss = criterion(output, labels)
             loss.backward()
             optimizer.step()
-            train_loss_sum += loss.item()
-        
+            train_loss_sum += loss.item()       
         average_train_loss = train_loss_sum / (train_set_size // batch_size)
         
         model.eval()
@@ -116,7 +153,7 @@ from scipy.stats import ttest_ind
 def prepare_and_display_final_results(all_model_results, learning_rates):
     all_model_averages = {}
     # Extract the test MAEs for CGGRU to use as a baseline for t-tests
-    cglstm_test_maes = np.array([result['test_mae'] for result in all_model_results['CGGRU'].values()])
+    cglstm_test_maes = np.array([result['test_mae'] for result in all_model_results['CGLSTM'].values()])
 
     for model_type, seeds_results in all_model_results.items():
         dfs = []
@@ -133,13 +170,13 @@ def prepare_and_display_final_results(all_model_results, learning_rates):
         model_mean['STD Val MAE'] = model_std['val_mae']
         model_mean['STD Test MAE'] = model_std['test_mae']
         
-        # Perform t-test if current model is not CGGRU
-        if model_type != 'CGGRU':
+        # Perform t-test if current model is not CGLSTM
+        if model_type != 'CGLSTM':
             current_test_maes = np.array([result['test_mae'] for result in seeds_results.values()])
             t_stat, p_value_test = ttest_ind(cglstm_test_maes, current_test_maes, equal_var=False)
             
-            model_mean['T-test Statistic (vs. CGGRU)'] = t_stat
-            model_mean['T-test p-value (vs. CGGRU)'] = p_value_test
+            model_mean['T-test Statistic (vs. CGLSTM)'] = t_stat
+            model_mean['T-test p-value (vs. CGLSTM)'] = p_value_test
         
         all_model_averages[model_type] = model_mean
 
@@ -149,20 +186,18 @@ def prepare_and_display_final_results(all_model_results, learning_rates):
     print("Model averages across seeds saved to 'model_averages_across_seeds.csv'.")
     print(df_model_averages)
 
-# The rest of the code, including the main function, would follow here
-
 
 def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
     hidden_size = 128
     batch_size = 128
     num_steps = 35
-    T = 1200
-    train_set_size = 8000
-    val_set_size = 50
-    test_set_size = 50
-    seeds = [23,443]  # Example seeds
-    learning_rates = {'CGGRU': 1e-3,'RAUCell': 1e-3,'LSTM': 1e-3, 'GRU': 1e-3,'Transformer': 1e-3}
+    T = 1000
+    train_set_size = 80000
+    val_set_size = 40000
+    test_set_size = 40000
+    seeds = [23,443,54]  
+    learning_rates = {'Transformer': 1e-3,'CGLSTM': 1e-3,'RAUCell': 1e-3,'LSTM': 1e-3, 'GRU': 1e-3,}
 
     all_model_results = {}
     for model_type in learning_rates:

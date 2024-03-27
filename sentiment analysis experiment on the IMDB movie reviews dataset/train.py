@@ -270,11 +270,11 @@ def main():
     dropout = 0.0
 
     # Define model types and their respective learning rates
-    model_types = ['CGGRU','LSTM', 'RAUCell','GRU','Transformer']
+    model_types = ['CGLSTM','LSTM', 'RAUCell','GRU','Transformer']
     learning_rates = [1e-3,1e-3,1e-3, 1e-3,1e-3]  # Example learning rates
 
     # Set seeds for reproducibility
-    seeds = [94,87] #,765]
+    seeds = [94,87,686] #,765]
 
     # Store all model results
     all_model_results = {}
@@ -342,9 +342,9 @@ def main():
 
     # Perform independent two-sample t-tests between models for statistical significance on test accuracy
     t_test_results = {}
-    baseline_test_accuracies = np.array([r['test_accuracies'] for r in all_model_results['CGGRU'].values()])
+    baseline_test_accuracies = np.array([r['test_accuracies'] for r in all_model_results['CGLSTM'].values()])
     for model_type in model_types:
-        if model_type == 'CGGRU':  # Skip baseline comparison with itself
+        if model_type == 'CGLSTM':  # Skip baseline comparison with itself
             continue
         test_accuracies = np.array([r['test_accuracies'] for r in all_model_results[model_type].values()])
         t_stat, p_value_test = ttest_ind(test_accuracies, baseline_test_accuracies, equal_var=False)
@@ -386,13 +386,13 @@ def main():
             'Mean Testing Time (s)': metrics['mean_testing_time'],
         }
         # Include T-test results only for test accuracy
-        if model_type != 'CGGRU':
+        if model_type != 'CGLSTM':
             t_stat, p_value = t_test_results.get(model_type, (None, None))
-            row['T-test Statistic (vs. CGGRU) (Test Accuracy)'] = t_stat
-            row['T-test p-value (vs. CGGRU) (Test Accuracy)'] = p_value
+            row['T-test Statistic (vs. CGLSTM) (Test Accuracy)'] = t_stat
+            row['T-test p-value (vs. CGLSTM) (Test Accuracy)'] = p_value
         else:
-            row['T-test Statistic (vs. CGGRU) (Test Accuracy)'] = None
-            row['T-test p-value (vs. CGGRU) (Test Accuracy)'] = None
+            row['T-test Statistic (vs. CGLSTM) (Test Accuracy)'] = None
+            row['T-test p-value (vs. CGLSTM) (Test Accuracy)'] = None
 
         final_table_data.append(row)
 

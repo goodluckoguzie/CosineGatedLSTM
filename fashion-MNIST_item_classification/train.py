@@ -17,7 +17,7 @@ def main():
     sys.path.append('../')
 
     # Import the custom recurrent model class
-    from model import FM_RecurrentModel
+    #from model import FM_RecurrentModel
 
     # Configure the device (use CUDA if available)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -180,11 +180,11 @@ def main():
     num_epochs = 213  # Number of epochs for training
     batch_size = 128  # Batch size for training and evaluation
 
-    seeds = [10,65]  # Seeds for reproducibility
+    seeds = [10,65,599]  # Seeds for reproducibility
 
     learning_rates = {
        
-       'GRU':1e-3, 'CGGRU': 1e-3,'Transformer':1e-3, 'LSTM': 1e-3, 'RAUCell': 1e-3
+       'GRU':1e-3,'CGLSTM':1e-3, 'Transformer':1e-3, 'LSTM': 1e-3, 'RAUCell': 1e-3
     }
 
 
@@ -207,6 +207,13 @@ def main():
     validation_dataset = Subset(train_dataset_full, validation_indices)
     train_indices = list(set(range(len(train_dataset_full))) - set(validation_indices))
     train_dataset = Subset(train_dataset_full, train_indices)
+
+
+    # Add the following print statements to print the sizes of the datasets
+    print(f"Size of the full training dataset: {len(train_dataset_full)}")
+    print(f"Size of the training dataset: {len(train_dataset)}")
+    print(f"Size of the validation dataset: {len(validation_dataset)}")
+    print(f"Size of the test dataset: {len(test_dataset)}")
 
     # Data loaders for training, validation, and testing
     train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
@@ -262,10 +269,10 @@ def prepare_and_display_final_results(all_model_results, learning_rates, seeds):
     # T-tests
     t_test_results = {}
     for model_type in learning_rates:
-        if model_type == 'CGGRU':  # Skip the comparison model itself
+        if model_type == 'CGLSTM':  # Skip the comparison model itself
             continue
         for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
-            t_statistic, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGGRU'][metric], equal_var=False, nan_policy='omit')
+            t_statistic, p_value = ttest_ind(model_metrics[model_type][metric], model_metrics['CGLSTM'][metric], equal_var=False, nan_policy='omit')
             t_test_results[(model_type, metric)] = {'T-test Statistic': t_statistic, 'T-test p-value': p_value}
 
 
@@ -298,12 +305,12 @@ def prepare_and_display_final_results(all_model_results, learning_rates, seeds):
 
         # Add T-test statistics and p-values to the row data
         for metric in ['train_accuracy', 'val_accuracy', 'test_accuracy']:
-            if model_type != 'CGGRU':
-                row_data[f'T-test Statistic (vs. CGGRU) {metric}'] = t_test_results[(model_type, metric)]['T-test Statistic']
-                row_data[f'T-test p-value (vs. CGGRU) {metric}'] = t_test_results[(model_type, metric)]['T-test p-value']
+            if model_type != 'CGLSTM':
+                row_data[f'T-test Statistic (vs. CGLSTM) {metric}'] = t_test_results[(model_type, metric)]['T-test Statistic']
+                row_data[f'T-test p-value (vs. CGLSTM) {metric}'] = t_test_results[(model_type, metric)]['T-test p-value']
             else:
-                row_data[f'T-test Statistic (vs. CGGRU) {metric}'] = None
-                row_data[f'T-test p-value (vs. CGGRU) {metric}'] = None
+                row_data[f'T-test Statistic (vs. CGLSTM) {metric}'] = None
+                row_data[f'T-test p-value (vs. CGLSTM) {metric}'] = None
 
         final_table_data.append(row_data)
 
