@@ -188,16 +188,16 @@ def prepare_and_display_final_results(all_model_results, learning_rates):
 
 
 def main():
-    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     hidden_size = 128
     batch_size = 128
     num_steps = 35
     T = 1000
-    train_set_size = 80000
-    val_set_size = 40000
-    test_set_size = 40000
+    train_set_size = 100000
+    val_set_size = 50000
+    test_set_size = 50000
     seeds = [23,443,54]  
-    learning_rates = {'Transformer': 1e-3,'CGLSTM': 1e-3,'RAUCell': 1e-3,'LSTM': 1e-3, 'GRU': 1e-3,}
+    learning_rates = {'CGLSTM': 1e-3,'RAUCell': 1e-3,'LSTM': 1e-3, 'GRU': 1e-3,'Transformer': 1e-3}
 
     all_model_results = {}
     for model_type in learning_rates:
