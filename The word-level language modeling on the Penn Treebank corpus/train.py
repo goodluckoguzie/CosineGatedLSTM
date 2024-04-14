@@ -67,10 +67,10 @@ def load_data(BATCH_SIZE=20):
 #     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
 #     EMBEDDING_DIM = 200
-#     HIDDEN_DIM = 200
+#     HIDDEN_DIM = 600
 #     NUM_LAYERS = 2
-#     DROPOUT = 0
-#     N_EPOCHS = 15
+#     DROPOUT = 0.5
+#     N_EPOCHS = 65
 
 #     model = LanguageModel(len(vocab), EMBEDDING_DIM, HIDDEN_DIM, NUM_LAYERS, DROPOUT, model_type).to(device)
 #     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -96,17 +96,17 @@ def train_and_evaluate(model_type, lr, seed, vocab, train_loader, valid_loader, 
     
     # Model and optimizer setup remains unchanged
     EMBEDDING_DIM = 200
-    HIDDEN_DIM = 200
+    HIDDEN_DIM = 650
     NUM_LAYERS = 2
-    DROPOUT = 0
-    N_EPOCHS = 13
+    DROPOUT = 0.5
+    N_EPOCHS = 65
 
     model = LanguageModel(len(vocab), EMBEDDING_DIM, HIDDEN_DIM, NUM_LAYERS, DROPOUT, model_type).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
     
     # Initialize scheduler
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=15, verbose=True)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=20, verbose=True)
 
     # Training loop with scheduler step
     metrics = {'train_loss': [], 'valid_loss': [], 'train_ppl': [], 'valid_ppl': [], 'test_loss': [], 'test_ppl': [], 'train_time': [], 'test_time': []}
